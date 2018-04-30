@@ -53,6 +53,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\Sphere Tracing\SphereTracingManager.cs" />
+    <None Include="Assets\Scripts\Sphere Tracing\Shader\ImplicitBasics.cginc" />
+    <None Include="Assets\Scripts\Sphere Tracing\Shader\WorldLogic.cginc" />
     <None Include="Assets\Scripts\Sphere Tracing\Shader\RenderShader.shader" />
     <None Include="Assets\Scripts\Sphere Tracing\Shader\ComputationShader.compute" />
     <Reference Include="Unity.PackageManagerUI.Editor">

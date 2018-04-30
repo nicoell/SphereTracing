@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using UnityEngine.Analytics;
 using UnityEngine.Rendering;
 
 [ExecuteInEditMode]
@@ -10,6 +9,9 @@ public class SphereTracingManager : MonoBehaviour
 	private RenderTexture _targetRenderTextureArray;
 	private Resolution _targetResolution;
 	private int _threadGroupX, _threadGroupY, _threadGroupZ;
+
+	[Range(0.1f, 3f)]
+	public float FOV = 1f;
 	public Mesh QuadMesh;
 
 	[Range(0, 2)]
@@ -17,19 +19,11 @@ public class SphereTracingManager : MonoBehaviour
 	public ComputeShader SphereTracingShader;
 	public Material TargetRendererMaterial;
 
-	[Range(-50, 50)]
-	public float CameraDistance = 5f;
-	[Range(0.1f, 3f)]
-	public float FOV = 1f;
-
-
 	// Use this for initialization
 	private void Start()
 	{
 		_targetRendererProperties = new MaterialPropertyBlock();
-
 		_targetResolution = Screen.currentResolution;
-
 		_targetRenderTextureArray = new RenderTexture(_targetResolution.width, _targetResolution.height, 0,
 			RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
 		{
@@ -57,18 +51,18 @@ public class SphereTracingManager : MonoBehaviour
 	private void Update()
 	{
 		TargetRendererMaterial.SetInt("ArrayIndex", RenderMode);
-		
-		
+
 		Shader.SetGlobalInt("ArrayIndex", RenderMode);
 
 		RunSphereTracing();
-		Graphics.DrawMesh(QuadMesh, Matrix4x4.identity, TargetRendererMaterial, 0, Camera.current, 0,
+		Graphics.DrawMesh(QuadMesh, Matrix4x4.identity, TargetRendererMaterial, 0, Camera.main, 0,
 			_targetRendererProperties);
 	}
 
 	private void RunSphereTracing()
 	{
-		SphereTracingShader.SetFloat("CameraDistance", CameraDistance);
+		SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
+		SphereTracingShader.SetMatrix("CameraRot", Matrix4x4.Rotate(Camera.main.transform.rotation));
 		SphereTracingShader.SetFloat("FOV", FOV);
 		SphereTracingShader.SetFloat("Width", _targetResolution.width);
 		SphereTracingShader.SetFloat("Height", _targetResolution.height);

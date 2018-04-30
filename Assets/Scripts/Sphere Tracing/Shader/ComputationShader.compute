@@ -5,100 +5,99 @@
 #define raymarchingNumThreadsZ 1
 #define raymarchingThreadCount raymarchingNumThreadsX * raymarchingNumThreadsY * raymarchingNumThreadsZ
 
-float Width;
-float Height;
-float CameraDistance;
-float FOV;
-RWTexture2DArray<float4> SphereTracingArray;
-
-
-
-float DistanceToSphere(in float3 pos, in float3 center, float radius)
-{
-    return length(pos - center) - radius;
-}
-
-float DistanceToWorld(in float3 pos)
-{
-    float displacement = 0;
-    //displacement = sin(5.0 * pos.x) * sin(5.0 * pos.y) * sin(5.0 * pos.z) * 0.25;
-
-    float sphere0 = DistanceToSphere(pos, float3(0, 0, 0), 1.0);
-    
-    return sphere0 + displacement;
-}
+#include "ImplicitBasics.cginc"
+#include "WorldLogic.cginc"
 
 float3 CalculateNormal(in float3 pos)
 {
-    const float3 STEP = float3(0.001, 0.0, 0.0);
-    
-    float gradientX = DistanceToWorld(pos + STEP.xyy) - DistanceToWorld(pos - STEP.xyy);
-    float gradientY = DistanceToWorld(pos + STEP.yxy) - DistanceToWorld(pos - STEP.yxy);
-    float gradientZ = DistanceToWorld(pos + STEP.yyx) - DistanceToWorld(pos - STEP.yyy);
-    
-    float3 normal = float3(gradientX, gradientY, gradientZ);
-    
-    return normalize(normal);
+	const float3 epsilon = float3(0.001, 0.0, 0.0);
+	
+	float gradientX = Map(pos + epsilon.xyy).x - Map(pos - epsilon.xyy).x;
+	float gradientY = Map(pos + epsilon.yxy).x - Map(pos - epsilon.yxy).x;
+	float gradientZ = Map(pos + epsilon.yyx).x - Map(pos - epsilon.yyy).x;
+	
+	float3 normal = float3(gradientX, gradientY, gradientZ);
+	
+	return normalize(normal);
 }
 
-void RayMarch(in float3 ro, in float3 rd, inout float3 color, inout float3 normal)
+/*
+ *  RayMarch
+ * 
+ *  Performs Sphere Tracing along given Ray
+ *      x: Total trace distance travelled along Ray (t * rayDir)
+ *      y: Material ID of hit object (-1 if nothing hit)
+ */
+float2 RayMarch(in Ray r)
 {
-    float distanceTraveled = 0.0;
-    const int STEPS = 32;
-    const float MIN_HIT_DISTANCE = 0.001;
-    const float MAX_TRACE_DISTANCE = 1000.0;
-    
-    for(int i = 0; i < STEPS; ++i)
-    {
-        float3 currentPos = ro + distanceTraveled * rd;
-        
-        float closestDistance = DistanceToWorld(currentPos);
-        
-        if (closestDistance < MIN_HIT_DISTANCE)
-        {
-            normal = CalculateNormal(currentPos);
-            
-            float3 lightPos = float3(2.0, -5.0, 3.0);
-            float3 dirToLight = normalize(currentPos - lightPos);
-            
-            float diffuseIntensity = saturate(dot(normal, dirToLight));
-            
-            color = float3(1, 0, 0) * diffuseIntensity;
-            
-            return;
-        }
-        
-        if (distanceTraveled > MAX_TRACE_DISTANCE)
-        {
-            return;
-        }
-        
-        distanceTraveled += closestDistance; 
-    }
+	const float TRACE_DISTANCE_MAX = 1000.0;
+	const float HIT_DISTANCE_MIN = 0.00015;
+	const int STEPS_MAX = 32;
+
+	float2 res = float2(1.0, -1.0);
+
+	for(int i = 0; i < STEPS_MAX; i++)
+	{
+		float2 hit = Map(r.Origin + res.x * r.Direction);
+		res.x += hit.x;
+		
+		if (hit.x < HIT_DISTANCE_MIN) 
+		{
+		    res.y = hit.y;
+		    break;
+		}
+		
+		if (res.x > TRACE_DISTANCE_MAX)
+		{
+		    res.y = -1.0;
+		    break;
+		}
+	}
+	
+	return res;
 }
+
+float Width;
+float Height;
+float3 CameraPos;
+float4x4 CameraRot;
+float FOV;
+RWTexture2DArray<float4> SphereTracingArray;
 
 [numthreads(raymarchingNumThreadsX, raymarchingNumThreadsY, raymarchingNumThreadsZ)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    //UV position on Screen
-	//float2 uv = float2(id.x/Resolution.x + 0.5/Resolution.x, id.y/Resolution.y + 0.5/Resolution.y);
-	//float2 uv = float2(id.x/Resolution.x, id.y/Resolution.y);
+	//UV position on Screen
 	float Aspect = Width / Height;
 	float2 uv = float2(id.x/Width, id.y/Height);
-	uv = uv * 2.0 - float2(1, 1);
+	uv = uv * 2.0 - float2(1.0, 1.0);  //Get point in range (-1, -1) to (1, 1)
 	uv.x *= Aspect;
 	
-	//Camera Position (Ray Origin)
-	float3 ro = float3(0, 0, -CameraDistance);
-	//Ray Direction
-	float3 rd = float3(uv, FOV);
+	Ray r;
+	r.Origin = CameraPos;
+	r.Direction = mul(float4(uv, FOV, 1), CameraRot).xyz;
 	
-	float3 color = float3(0, 0, 0);
-	float3 normal = float3(0, 0, 0);
+	float3 color = Background(r);
+	float3 normal;
 	
-	RayMarch(ro, rd, color, normal);
-    
-    SphereTracingArray[uint3(id.xy, 0)] = float4(color, 1);
-    SphereTracingArray[uint3(id.xy, 1)] = float4(normal, 1);
+	float2 tm = RayMarch(r); //t: traceDistance, m: materialID
+	float t = tm.x;
+	float matID = tm.y;
+	if (matID > 0.5)
+	{
+	    float3 pos = r.Origin + t * r.Direction;
+	    normal = CalculateNormal(pos);
+	    Material mat;
+	    
+	    EvaluateMaterial(matID, r, pos, normal, mat);
+	    
+	    color += Shading(t, r, pos, mat);
+	} else 
+	{
+        //No material ID	
+	}
+	
+	SphereTracingArray[uint3(id.xy, 0)] = float4(color, 1);
+	SphereTracingArray[uint3(id.xy, 1)] = float4(normal, 1);
 }
 
