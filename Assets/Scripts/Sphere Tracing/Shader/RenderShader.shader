@@ -3,7 +3,7 @@
 	SubShader
 	{
 		// No culling or depth
-		Cull Off ZWrite Off ZTest Always
+		Cull Off ZWrite Off
 		Tags{ "Queue" = "Overlay" }
 
 		Pass
@@ -36,6 +36,7 @@
 				float4 vertex : SV_POSITION;
 			};
 			
+			// Pixel Shader Out
 			struct PSOut 
 			{
 			    float4 color : SV_Target;
@@ -44,8 +45,7 @@
 			VSOut vert (PAOut IN)
 			{
 				VSOut OUT;
-				OUT.vertex = float4(IN.vertex.xy*2,0,1);
-				//OUT.vertex = UnityObjectToClipPos(IN.vertex);
+				OUT.vertex = float4(IN.vertex.xy* 2.0 , .0, 1);
 				OUT.uv = IN.uv;
 				return OUT;
 			}
@@ -53,7 +53,7 @@
 			PSOut frag (VSOut IN)
 			{
 			    PSOut OUT;
-			    OUT.color = SphereTracingArray.Sample(samplerSphereTracingArray, float3(IN.uv.xy, ArrayIndex));
+			    OUT.color = SphereTracingArray.Sample(samplerSphereTracingArray, float3(IN.uv.xy, 0));
 
 				return OUT;
 			}

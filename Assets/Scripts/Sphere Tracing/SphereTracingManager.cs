@@ -1,72 +1,89 @@
 ﻿using UnityEngine;
-using UnityEngine.Rendering;
 
 [ExecuteInEditMode]
 public class SphereTracingManager : MonoBehaviour
 {
 	private int _sphereTracingKernel;
-	private MaterialPropertyBlock _targetRendererProperties;
-	private RenderTexture _targetRenderTextureArray;
+	private RenderTexture _targetRenderTexture;
 	private Resolution _targetResolution;
 	private int _threadGroupX, _threadGroupY, _threadGroupZ;
-
-	[Range(0.1f, 3f)]
-	public float FOV = 1f;
-	public Mesh QuadMesh;
-
-	[Range(0, 2)]
-	public int RenderMode;
 	public ComputeShader SphereTracingShader;
-	public Material TargetRendererMaterial;
+	[Range(2, 1024)]
+	public int SphereTracingSteps = 32;
 
 	// Use this for initialization
 	private void Start()
 	{
-		_targetRendererProperties = new MaterialPropertyBlock();
+		// Create Render Texture
 		_targetResolution = Screen.currentResolution;
-		_targetRenderTextureArray = new RenderTexture(_targetResolution.width, _targetResolution.height, 0,
+		_targetRenderTexture = new RenderTexture(_targetResolution.width, _targetResolution.height, 0,
 			RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
 		{
-			dimension = TextureDimension.Tex2DArray,
-			volumeDepth = 3,
 			enableRandomWrite = true
 		};
-		_targetRenderTextureArray.Create();
+		_targetRenderTexture.Create();
 
+		// Get Kernel and ThreadGroupSizes of Compute Shader
 		_sphereTracingKernel = SphereTracingShader.FindKernel("CSMain");
-
 		uint threadGroupX, threadGroupY, threadGroupZ;
 		SphereTracingShader.GetKernelThreadGroupSizes(_sphereTracingKernel, out threadGroupX,
 			out threadGroupY, out threadGroupZ);
-
 		_threadGroupX = (int) (_targetResolution.width / threadGroupX);
 		_threadGroupY = (int) (_targetResolution.height / threadGroupY);
 		_threadGroupZ = 1;
 
-		_targetRendererProperties.SetTexture("SphereTracingArray", _targetRenderTextureArray);
-		Shader.SetGlobalTexture("SphereTracingArray", _targetRenderTextureArray);
+		//Set resolution and texture in ComputeShader
+		SphereTracingShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
+		SphereTracingShader.SetTexture(_sphereTracingKernel, "SphereTracingTexture", _targetRenderTexture);
 	}
 
 	// Update is called once per frame
 	private void Update()
 	{
-		TargetRendererMaterial.SetInt("ArrayIndex", RenderMode);
-
-		Shader.SetGlobalInt("ArrayIndex", RenderMode);
-
-		RunSphereTracing();
-		Graphics.DrawMesh(QuadMesh, Matrix4x4.identity, TargetRendererMaterial, 0, Camera.main, 0,
-			_targetRendererProperties);
+		SphereTracingShader.SetTexture(_sphereTracingKernel, "SphereTracingTexture", _targetRenderTexture);
+		SphereTracingShader.SetVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
+		SphereTracingShader.SetMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
+		SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
+		
+		SphereTracingShader.SetInt("SphereTracingSteps", SphereTracingSteps);
+		
+		SphereTracingShader.Dispatch(_sphereTracingKernel, _threadGroupX, _threadGroupY, _threadGroupZ);
 	}
 
-	private void RunSphereTracing()
+	private void OnRenderImage(RenderTexture src, RenderTexture dest)
 	{
-		SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
-		SphereTracingShader.SetMatrix("CameraRot", Matrix4x4.Rotate(Camera.main.transform.rotation));
-		SphereTracingShader.SetFloat("FOV", FOV);
-		SphereTracingShader.SetFloat("Width", _targetResolution.width);
-		SphereTracingShader.SetFloat("Height", _targetResolution.height);
-		SphereTracingShader.SetTexture(_sphereTracingKernel, "SphereTracingArray", _targetRenderTextureArray);
-		SphereTracingShader.Dispatch(_sphereTracingKernel, _threadGroupX, _threadGroupY, _threadGroupZ);
+		//Render Texture on Screen
+		Graphics.Blit(_targetRenderTexture, (RenderTexture) null);
+	}
+
+	private void OnDrawGizmos()
+	{
+		Gizmos.DrawSphere(Vector3.zero, 3f);
+	}
+
+	private void OnDrawGizmosSelected()
+	{
+		//Draw Camera Frustum Edge Vectors
+		var cameraFrustumEdgeVectors = GetCameraFrustumEdgeVectors(Camera.main);
+		foreach (var edge in cameraFrustumEdgeVectors)
+		{
+			
+			Gizmos.DrawRay(Camera.main.transform.position, Camera.main.worldToCameraMatrix.MultiplyVector(edge));
+		}
+	}
+
+	private static Vector4[] GetCameraFrustumEdgeVectors(Camera camera)
+	{
+		var frustumVectors = new Vector4[4];
+		float tanFov = Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+		var right = Vector3.right * tanFov * camera.aspect;
+		var top = Vector3.up * tanFov;
+
+		frustumVectors[0] = -Vector3.forward - right + top; //TopLeft
+		frustumVectors[1] = -Vector3.forward + right + top; //TopRight
+		frustumVectors[2] = -Vector3.forward + right - top; //BottomRight
+		frustumVectors[3] = -Vector3.forward - right - top; //BottomLeft
+
+		return frustumVectors;
 	}
 }

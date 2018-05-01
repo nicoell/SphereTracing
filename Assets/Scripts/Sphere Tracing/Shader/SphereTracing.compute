@@ -8,6 +8,15 @@
 #include "ImplicitBasics.cginc"
 #include "WorldLogic.cginc"
 
+RWTexture2D<float4> SphereTracingTexture;
+
+float4 CameraFrustumEdgeVectors[4];
+float4x4 CameraInverseViewMatrix;
+float3 CameraPos;
+float2 Resolution;
+
+int SphereTracingSteps;
+
 float3 CalculateNormal(in float3 pos)
 {
 	const float3 epsilon = float3(0.001, 0.0, 0.0);
@@ -36,7 +45,7 @@ float2 RayMarch(in Ray r)
 
 	float2 res = float2(1.0, -1.0);
 
-	for(int i = 0; i < STEPS_MAX; i++)
+	for(int i = 0; i < SphereTracingSteps; i++)
 	{
 		float2 hit = Map(r.Origin + res.x * r.Direction);
 		res.x += hit.x;
@@ -57,28 +66,23 @@ float2 RayMarch(in Ray r)
 	return res;
 }
 
-float Width;
-float Height;
-float3 CameraPos;
-float4x4 CameraRot;
-float FOV;
-RWTexture2DArray<float4> SphereTracingArray;
-
 [numthreads(raymarchingNumThreadsX, raymarchingNumThreadsY, raymarchingNumThreadsZ)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-	//UV position on Screen
-	float Aspect = Width / Height;
-	float2 uv = float2(id.x/Width, id.y/Height);
-	uv = uv * 2.0 - float2(1.0, 1.0);  //Get point in range (-1, -1) to (1, 1)
-	uv.x *= Aspect;
-	
+	//UVs on Screen
+	float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
+
+	//Construct Ray
 	Ray r;
 	r.Origin = CameraPos;
-	r.Direction = mul(float4(uv, FOV, 1), CameraRot).xyz;
+	float4 rayDir = (lerp(
+	    lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], uv.x),
+	    lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], uv.x),
+	    uv.y));
+	r.Direction = mul(CameraInverseViewMatrix, rayDir).xyz;
 	
-	float3 color = Background(r);
-	float3 normal;
+	float3 color = Background(r); //Evaluate Background
+	float3 normal = float3(.0, .0, .0);
 	
 	float2 tm = RayMarch(r); //t: traceDistance, m: materialID
 	float t = tm.x;
@@ -91,13 +95,12 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	    
 	    EvaluateMaterial(matID, r, pos, normal, mat);
 	    
-	    color += Shading(t, r, pos, mat);
+	    color = Shading(t, r, pos, mat);
 	} else 
 	{
         //No material ID	
 	}
 	
-	SphereTracingArray[uint3(id.xy, 0)] = float4(color, 1);
-	SphereTracingArray[uint3(id.xy, 1)] = float4(normal, 1);
+	SphereTracingTexture[uint2(id.xy)] = float4(color, 1.0);
 }
 

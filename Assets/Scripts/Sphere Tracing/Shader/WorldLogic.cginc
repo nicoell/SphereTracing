@@ -67,8 +67,8 @@ float3 Shading(in float t, in Ray r, in float3 pos, in Material mat)
 
 float3 Background(in Ray r)
 {
-    
-    return float3(.0, .0, .0);
+    return r.Direction;
+    //return float3(.0, .5, .0);
 }
 
 #endif // WORLDLOGIC_INCLUDED

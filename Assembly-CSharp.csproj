@@ -56,7 +56,7 @@
     <None Include="Assets\Scripts\Sphere Tracing\Shader\ImplicitBasics.cginc" />
     <None Include="Assets\Scripts\Sphere Tracing\Shader\WorldLogic.cginc" />
     <None Include="Assets\Scripts\Sphere Tracing\Shader\RenderShader.shader" />
-    <None Include="Assets\Scripts\Sphere Tracing\Shader\ComputationShader.compute" />
+    <None Include="Assets\Scripts\Sphere Tracing\Shader\SphereTracing.compute" />
     <Reference Include="Unity.PackageManagerUI.Editor">
       <HintPath>D:/Documents/GitHub/SphereTracing/Library/ScriptAssemblies/Unity.PackageManagerUI.Editor.dll</HintPath>
     </Reference>
