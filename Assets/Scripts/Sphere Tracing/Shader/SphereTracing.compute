@@ -5,10 +5,14 @@
 #define raymarchingNumThreadsZ 1
 #define raymarchingThreadCount raymarchingNumThreadsX * raymarchingNumThreadsY * raymarchingNumThreadsZ
 
-#include "ImplicitBasics.cginc"
-#include "WorldLogic.cginc"
+#include "ImplicitBasics.cginc"         //Contains the basics like primitives or operations.
+#include "StructDefinitions.cginc"      //Contains definitons of structs.     
+#include "WorldLogic.cginc"             //Contains the map of the world and related stuff unique to the world.
 
-RWTexture2D<float4> SphereTracingTexture;
+/*
+ * Variables set from CPU side, like uniforms
+ */
+RWTexture2D<float4> SphereTracingTexture; //Target Render Texture with Read Write Access
 
 float4 CameraFrustumEdgeVectors[4];
 float4x4 CameraInverseViewMatrix;
@@ -16,6 +20,7 @@ float3 CameraPos;
 float2 Resolution;
 
 int SphereTracingSteps;
+
 
 float3 CalculateNormal(in float3 pos)
 {
@@ -41,13 +46,15 @@ float2 RayMarch(in Ray r)
 {
 	const float TRACE_DISTANCE_MAX = 1000.0;
 	const float HIT_DISTANCE_MIN = 0.00015;
-	const int STEPS_MAX = 32;
 
-	float2 res = float2(1.0, -1.0);
+    
+	float2 res = float2(1.0, -1.0); // result
 
+    //Trace along ray with sphere tracing algorithm. 
 	for(int i = 0; i < SphereTracingSteps; i++)
 	{
-		float2 hit = Map(r.Origin + res.x * r.Direction);
+	    float3 pointOnRay = r.Origin + res.x * r.Direction;
+		float2 hit = Map(pointOnRay);
 		res.x += hit.x;
 		
 		if (hit.x < HIT_DISTANCE_MIN) 
@@ -66,6 +73,9 @@ float2 RayMarch(in Ray r)
 	return res;
 }
 
+/*
+ *  Main Function
+ */
 [numthreads(raymarchingNumThreadsX, raymarchingNumThreadsY, raymarchingNumThreadsZ)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
@@ -75,7 +85,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	//Construct Ray
 	Ray r;
 	r.Origin = CameraPos;
-	float4 rayDir = (lerp(
+	float4 rayDir = normalize(lerp(
 	    lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], uv.x),
 	    lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], uv.x),
 	    uv.y));
@@ -98,9 +108,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	    color = Shading(t, r, pos, mat);
 	} else 
 	{
-        //No material ID	
+        //No material ID, we hit the background.
 	}
 	
+	//Write Color to Texture
 	SphereTracingTexture[uint2(id.xy)] = float4(color, 1.0);
 }
 

@@ -52,7 +52,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\Sphere Tracing\Shader\StructDefinitions.cginc.cs" />
     <Compile Include="Assets\Scripts\Sphere Tracing\SphereTracingManager.cs" />
+    <Compile Include="Assets\Scripts\Utils\FreeRoamCamera.cs" />
     <None Include="Assets\Scripts\Sphere Tracing\Shader\ImplicitBasics.cginc" />
     <None Include="Assets\Scripts\Sphere Tracing\Shader\WorldLogic.cginc" />
     <None Include="Assets\Scripts\Sphere Tracing\Shader\RenderShader.shader" />
@@ -294,6 +296,9 @@
     <Reference Include="Boo.Lang">
       <HintPath>C:/Program Files/Unity/Hub/Editor/2018.1.0b10/Editor/Data/MonoBleedingEdge/lib/mono/unity/Boo.Lang.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\Scripts\Sphere Tracing\Shader\StructDefinitions.cginc" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

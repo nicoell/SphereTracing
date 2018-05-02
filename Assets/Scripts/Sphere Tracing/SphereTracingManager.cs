@@ -44,9 +44,9 @@ public class SphereTracingManager : MonoBehaviour
 		SphereTracingShader.SetVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 		SphereTracingShader.SetMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
 		SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
-		
+
 		SphereTracingShader.SetInt("SphereTracingSteps", SphereTracingSteps);
-		
+
 		SphereTracingShader.Dispatch(_sphereTracingKernel, _threadGroupX, _threadGroupY, _threadGroupZ);
 	}
 
@@ -56,10 +56,7 @@ public class SphereTracingManager : MonoBehaviour
 		Graphics.Blit(_targetRenderTexture, (RenderTexture) null);
 	}
 
-	private void OnDrawGizmos()
-	{
-		Gizmos.DrawSphere(Vector3.zero, 3f);
-	}
+	private void OnDrawGizmos() { Gizmos.DrawSphere(Vector3.zero, 3f); }
 
 	private void OnDrawGizmosSelected()
 	{
@@ -67,15 +64,15 @@ public class SphereTracingManager : MonoBehaviour
 		var cameraFrustumEdgeVectors = GetCameraFrustumEdgeVectors(Camera.main);
 		foreach (var edge in cameraFrustumEdgeVectors)
 		{
-			
-			Gizmos.DrawRay(Camera.main.transform.position, Camera.main.worldToCameraMatrix.MultiplyVector(edge));
+			Gizmos.color = Color.green;
+			Gizmos.DrawRay(Camera.main.transform.position, Camera.main.cameraToWorldMatrix.MultiplyVector(edge));
 		}
 	}
 
 	private static Vector4[] GetCameraFrustumEdgeVectors(Camera camera)
 	{
 		var frustumVectors = new Vector4[4];
-		float tanFov = Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+		var tanFov = Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad);
 		var right = Vector3.right * tanFov * camera.aspect;
 		var top = Vector3.up * tanFov;
 

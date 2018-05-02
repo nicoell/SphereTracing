@@ -2,24 +2,24 @@
 #define WORLDLOGIC_INCLUDED
 
 #include "ImplicitBasics.cginc"
+#include "StructDefinitions.cginc"
 
-#define MAT_TEST 1.0
+//Definition of Material IDs
+#define MAT_SPHERE 1.0
+#define MAT_BOX 2.0
 
-struct Ray
-{
-    float3 Origin;
-    float3 Direction;
-};
-
-struct Material
-{
-    float3 Color;
-    float3 Normal;
-};
+//Objects in the world.
 
 float2 SphereTest(in float3 pos)
 {
-    return float2(sdSphere(pos, 3.0), MAT_TEST);
+    return float2(sdSphere(pos, 3.0), MAT_SPHERE);
+}
+
+float2 BoxTest(in float3 pos)
+{
+    float3 repeating = float3(10.0, 10.0, 10.0);
+    float3 posRepeated = mod(pos, repeating) - 0.5 * repeating;
+    return float2(sdBox(posRepeated, float3(4.0, 2.0, 1.0)), MAT_BOX);
 }
 
 /*
@@ -32,19 +32,23 @@ float2 SphereTest(in float3 pos)
  */
 float2 Map(in float3 pos)
 {
-	float displacement = 0;
-	//displacement = sin(5.0 * pos.x) * sin(5.0 * pos.y) * sin(5.0 * pos.z) * 0.25;
-
-	float2 sphere0 = SphereTest(pos);
+	float2 res = opU(BoxTest(pos), SphereTest(pos));
 	
-	return sphere0;
+	//float displacement = displacement = sin(5.0 * pos.x) * sin(5.0 * pos.y) * sin(5.0 * pos.z) * 0.25;
+	//res += displacement;
+	
+	return res;
 }
 
 void EvaluateMaterial(in float matID, in Ray r, in float3 pos, in float3 normal, out Material mat)
 {
-    if (matID < MAT_TEST+0.5)
+    if (matID < MAT_SPHERE+0.5)
     {
         mat.Color = float3(1, 0, 0);
+        mat.Normal = normal;
+    } else if (matID = MAT_BOX+0.5)
+    {
+        mat.Color = float3(1, 1, 1);
         mat.Normal = normal;
     }
 }

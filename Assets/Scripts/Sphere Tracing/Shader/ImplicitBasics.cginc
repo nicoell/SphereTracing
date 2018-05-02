@@ -1,6 +1,10 @@
 #ifndef IMPLICITBASCIS_INCLUDED
 #define IMPLICITBASCIS_INCLUDED
 
+#define mod(x, y) (x - y * floor(x / y))
+
+// Primitives
+
 float sdSphere(float3 p, float radius)
 {
     return length(p) - radius;
@@ -82,5 +86,24 @@ float sdEllipsoid(in float3 p, in float3 r)
     return (length( p/r ) - 1.0) * min(min(r.x,r.y),r.z);
 }
 
+//Distance Operations
+
+//Union
+float2 opU( float2 d1, float2 d2 )
+{
+	return (d1.x < d2.x) ? d1 : d2;
+}
+
+//Subtraction
+float2 opS( float2 d1, float2 d2 )
+{
+	return (-d1.x > d2.x) ? d1 : d2;
+}
+
+//Intersection
+float2 opI( float2 d1, float2 d2 )
+{
+	return (d1.x > d2.x) ? d1 : d2;
+}
 
 #endif // IMPLICITBASCIS_INCLUDED
