@@ -45,30 +45,23 @@ float3 CalculateNormal(in float3 pos)
 float2 RayMarch(in Ray r)
 {
 	const float TRACE_DISTANCE_MAX = 1000.0;
-	const float HIT_DISTANCE_MIN = 0.00015;
-
-    
 	float2 res = float2(1.0, -1.0); // result
 
     //Trace along ray with sphere tracing algorithm. 
 	for(int i = 0; i < SphereTracingSteps; i++)
 	{
-	    float3 pointOnRay = r.Origin + res.x * r.Direction;
+		float epsilon = 0.00015 * res.x;
+		float3 pointOnRay = r.Origin + res.x * r.Direction;
 		float2 hit = Map(pointOnRay);
+		
+		//If we hit something or exceed the maximum trace distnace we stop immediately.
+		if (hit.x < epsilon || res.x > TRACE_DISTANCE_MAX) break;
+		
 		res.x += hit.x;
-		
-		if (hit.x < HIT_DISTANCE_MIN) 
-		{
-		    res.y = hit.y;
-		    break;
-		}
-		
-		if (res.x > TRACE_DISTANCE_MAX)
-		{
-		    res.y = -1.0;
-		    break;
-		}
+		res.y = hit.y;
 	}
+	
+	if (res.x > TRACE_DISTANCE_MAX)  res.y = -1.0;
 	
 	return res;
 }
