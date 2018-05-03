@@ -106,4 +106,38 @@ float2 opI( float2 d1, float2 d2 )
 	return (d1.x > d2.x) ? d1 : d2;
 }
 
+//Domain Operations
+
+//Repetition
+float3 opRep(float3 p, float3 c)
+{
+    return mod(p, c) - 0.5*c;
+}
+
+//Rotation/Translation
+float3 opTx(float3 p, float4x4 m)
+{
+    return mul(m, float4(p, 1)).xyz;
+}
+
+//Domain Deformations
+
+//Twist
+float3 opTwist(float3 p)
+{
+    float c = cos(20.0*p.y);
+    float s = sin(20.0*p.y);
+    float2x2 m = float2x2(c, -s, s, c);
+    return float3(mul(m, p.xz), p.y);
+}
+
+//Bend
+float3 opBend(float3 p)
+{
+    float c = cos(20.0*p.y);
+    float s = sin(20.0*p.y);
+    float2x2 m = float2x2(c, -s, s, c);
+    return float3(mul(m, p.xy), p.z);
+}
+
 #endif // IMPLICITBASCIS_INCLUDED
