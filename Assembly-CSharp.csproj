@@ -52,7 +52,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\Scripts\Sphere Tracing\Shader\StructDefinitions.cginc.cs" />
     <Compile Include="Assets\Scripts\Sphere Tracing\SphereTracingManager.cs" />
     <Compile Include="Assets\Scripts\Utils\FreeRoamCamera.cs" />
     <None Include="Assets\Scripts\Sphere Tracing\Shader\ImplicitBasics.cginc" />
