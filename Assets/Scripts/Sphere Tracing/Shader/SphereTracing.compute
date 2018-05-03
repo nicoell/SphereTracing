@@ -1,9 +1,19 @@
-﻿#pragma kernel CSMain
+﻿#pragma kernel CSMainHigh
+#pragma kernel CSMainMid
+#pragma kernel CSMainLow
 
-#define raymarchingNumThreadsX 16
-#define raymarchingNumThreadsY 8
-#define raymarchingNumThreadsZ 1
-#define raymarchingThreadCount raymarchingNumThreadsX * raymarchingNumThreadsY * raymarchingNumThreadsZ
+#define CSMainHighThreadsX 32
+#define CSMainHighThreadsY 20
+#define CSMainHighThreadsZ 1
+
+#define CSMainMidThreadsX 16
+#define CSMainMidThreadsY 16
+#define CSMainMidThreadsZ 1
+
+#define CSMainLowThreadsX 8
+#define CSMainLowThreadsY 8
+#define CSMainLowThreadsZ 1
+
 
 #include "ImplicitBasics.cginc"         //Contains the basics like primitives or operations.
 #include "StructDefinitions.cginc"      //Contains definitons of structs.     
@@ -12,12 +22,14 @@
 /*
  * Variables set from CPU side, like uniforms
  */
-RWTexture2D<float4> SphereTracingTexture; //Target Render Texture with Read Write Access
+RWTexture2D<float4> SphereTracingTexture;   //Target Render Texture with Read Write Access
 
-float4 CameraFrustumEdgeVectors[4];
-float4x4 CameraInverseViewMatrix;
-float3 CameraPos;
-float2 Resolution;
+
+float4 CameraFrustumEdgeVectors[4];         //Array of the cameras frustum edge vectors, clockwise beginning in the topleft.
+float4x4 CameraInverseViewMatrix;       
+float3 CameraPos;   
+float2 Resolution;                          //Width and Height of RenderTexture
+float4 Time;                                //x: Time in s   y: x/20     z: deltaTime      w: 1/z
 
 int SphereTracingSteps;
 
@@ -66,13 +78,9 @@ float2 RayMarch(in Ray r)
 	return res;
 }
 
-/*
- *  Main Function
- */
-[numthreads(raymarchingNumThreadsX, raymarchingNumThreadsY, raymarchingNumThreadsZ)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+void Main(uint3 id)
 {
-	//UVs on Screen
+    //UVs on Screen
 	float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
 
 	//Construct Ray
@@ -107,4 +115,14 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	//Write Color to Texture
 	SphereTracingTexture[uint2(id.xy)] = float4(color, 1.0);
 }
+
+
+[numthreads(CSMainHighThreadsX, CSMainHighThreadsY, CSMainHighThreadsZ)]
+void CSMainHigh (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+[numthreads(CSMainMidThreadsX, CSMainMidThreadsY, CSMainMidThreadsZ)]
+void CSMainMid (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+[numthreads(CSMainLowThreadsX, CSMainLowThreadsY, CSMainLowThreadsZ)]
+void CSMainLow (uint3 id : SV_DispatchThreadID) { Main(id); }
 

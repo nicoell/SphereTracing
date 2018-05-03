@@ -3,15 +3,17 @@
 [ExecuteInEditMode]
 public class SphereTracingManager : MonoBehaviour
 {
-	private int _sphereTracingKernel;
+	private ComputeKernel[] _computeKernels;
 	private RenderTexture _targetRenderTexture;
 	private Resolution _targetResolution;
-	private int _threadGroupX, _threadGroupY, _threadGroupZ;
+	[Tooltip("Kernels have a different ThreadGroupSizes. 0: High; 1: Mid; 2: Low Size.")]
+	[Range(0, 2)]
+	public int ComputeShaderKernel;
 	public ComputeShader SphereTracingShader;
 	[Range(2, 1024)]
 	public int SphereTracingSteps = 32;
 
-	// Use this for initialization
+// Use this for initialization
 	private void Start()
 	{
 		// Create Render Texture
@@ -23,31 +25,40 @@ public class SphereTracingManager : MonoBehaviour
 		};
 		_targetRenderTexture.Create();
 
-		// Get Kernel and ThreadGroupSizes of Compute Shader
-		_sphereTracingKernel = SphereTracingShader.FindKernel("CSMain");
-		uint threadGroupX, threadGroupY, threadGroupZ;
-		SphereTracingShader.GetKernelThreadGroupSizes(_sphereTracingKernel, out threadGroupX,
-			out threadGroupY, out threadGroupZ);
-		_threadGroupX = (int) (_targetResolution.width / threadGroupX);
-		_threadGroupY = (int) (_targetResolution.height / threadGroupY);
-		_threadGroupZ = 1;
+		_computeKernels = new ComputeKernel[3];
+		_computeKernels[0].Name = "CSMainHigh";
+		_computeKernels[1].Name = "CSMainMid";
+		_computeKernels[2].Name = "CSMainLow";
+
+		for (var i = 0; i < _computeKernels.Length; i++)
+		{
+			_computeKernels[i].Id = SphereTracingShader.FindKernel(_computeKernels[i].Name);
+			uint threadGroupX, threadGroupY, threadGroupZ;
+			SphereTracingShader.GetKernelThreadGroupSizes(_computeKernels[i].Id, out threadGroupX,
+				out threadGroupY, out threadGroupZ);
+			_computeKernels[i].ThreadGroupSize = new Vector3Int((int) threadGroupX, (int) threadGroupY, (int) threadGroupZ);
+			_computeKernels[i].CalculateThreadGroups(_targetResolution.width, _targetResolution.height, 1);
+		}
 
 		//Set resolution and texture in ComputeShader
 		SphereTracingShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
-		SphereTracingShader.SetTexture(_sphereTracingKernel, "SphereTracingTexture", _targetRenderTexture);
 	}
 
 	// Update is called once per frame
 	private void Update()
 	{
-		SphereTracingShader.SetTexture(_sphereTracingKernel, "SphereTracingTexture", _targetRenderTexture);
+		SphereTracingShader.SetTexture(_computeKernels[ComputeShaderKernel].Id, "SphereTracingTexture", _targetRenderTexture);
 		SphereTracingShader.SetVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 		SphereTracingShader.SetMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
 		SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
+		SphereTracingShader.SetVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
 
 		SphereTracingShader.SetInt("SphereTracingSteps", SphereTracingSteps);
 
-		SphereTracingShader.Dispatch(_sphereTracingKernel, _threadGroupX, _threadGroupY, _threadGroupZ);
+		SphereTracingShader.Dispatch(_computeKernels[ComputeShaderKernel].Id,
+			_computeKernels[ComputeShaderKernel].ThreadGroups.x, 
+			_computeKernels[ComputeShaderKernel].ThreadGroups.y,
+			_computeKernels[ComputeShaderKernel].ThreadGroups.z);
 	}
 
 	private void OnRenderImage(RenderTexture src, RenderTexture dest)
@@ -69,6 +80,11 @@ public class SphereTracingManager : MonoBehaviour
 		}
 	}
 
+	/// <summary>
+	///     Returns the 4 edge vectors of the frustum of the given camera.
+	/// </summary>
+	/// <param name="camera">Unity camera object.</param>
+	/// <returns>Array of Vectors with 4 not-normalized vectors. </returns>
 	private static Vector4[] GetCameraFrustumEdgeVectors(Camera camera)
 	{
 		var frustumVectors = new Vector4[4];
@@ -82,5 +98,23 @@ public class SphereTracingManager : MonoBehaviour
 		frustumVectors[3] = -Vector3.forward - right - top; //BottomLeft
 
 		return frustumVectors;
+	}
+
+	protected struct ComputeKernel
+	{
+		public string Name;
+		public int Id;
+		public Vector3Int ThreadGroupSize;
+		public Vector3Int ThreadGroups;
+
+		public void CalculateThreadGroups(int totalThreadsX, int totalThreadsY, int totalThreadsZ)
+		{
+			ThreadGroups = new Vector3Int
+			{
+				x = totalThreadsX / ThreadGroupSize.x,
+				y = totalThreadsY / ThreadGroupSize.y,
+				z = totalThreadsZ / ThreadGroupSize.z
+			};
+		}
 	}
 }

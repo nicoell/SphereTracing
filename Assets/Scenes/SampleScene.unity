@@ -150,8 +150,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4271bbd365b1fd04ea1de901ba897585, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ComputeShaderKernel: 0
   SphereTracingShader: {fileID: 7200000, guid: 50aef8ce42f6a024b893455bc10a19c6, type: 3}
-  SphereTracingSteps: 132
+  SphereTracingSteps: 256
 --- !u!20 &282840813
 Camera:
   m_ObjectHideFlags: 0
