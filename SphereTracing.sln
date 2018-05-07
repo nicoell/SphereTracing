@@ -1,8 +1,9 @@
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
-Project("{E097FAD1-6243-4DAD-9C02-E9B9EFC3FFC1}") = "Assembly-CSharp", "Assembly-CSharp.csproj", "{40535C29-4692-A1CE-F25E-9EC6CED357C6}"
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio for Mac
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SphereTracing", "Assembly-CSharp.csproj", "{40535C29-4692-A1CE-F25E-9EC6CED357C6}"
 EndProject
-Project("{E097FAD1-6243-4DAD-9C02-E9B9EFC3FFC1}") = "Assembly-CSharp-Editor-firstpass", "Assembly-CSharp-Editor-firstpass.csproj", "{27ACFA2C-E2E6-8B88-D9CB-6DF4EA46B375}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SphereTracing", "Assembly-CSharp-Editor-firstpass.csproj", "{27ACFA2C-E2E6-8B88-D9CB-6DF4EA46B375}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,8 +22,5 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = Assembly-CSharp.csproj
 	EndGlobalSection
 EndGlobal
