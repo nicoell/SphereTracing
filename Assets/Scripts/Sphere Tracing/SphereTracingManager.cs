@@ -6,6 +6,8 @@ public class SphereTracingManager : MonoBehaviour
 	private ComputeKernel[] _computeKernels;
 	private RenderTexture _targetRenderTexture;
 	private Resolution _targetResolution;
+	public bool UseCustomResolution;
+	public Vector2Int CustomResolution;
 	[Tooltip("Kernels have a different ThreadGroupSizes. 0: High; 1: Mid; 2: Low Size.")]
 	[Range(0, 2)]
 	public int ComputeShaderKernel;
@@ -17,7 +19,17 @@ public class SphereTracingManager : MonoBehaviour
 	private void Start()
 	{
 		// Create Render Texture
-		_targetResolution = Screen.currentResolution;
+		if (UseCustomResolution)
+		{
+			_targetResolution = new Resolution
+			{
+				width = CustomResolution.x,
+				height = CustomResolution.y
+			};
+		} else
+		{
+			_targetResolution = Screen.currentResolution;
+		}
 		_targetRenderTexture = new RenderTexture(_targetResolution.width, _targetResolution.height, 0,
 			RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
 		{
