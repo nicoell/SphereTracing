@@ -117,4 +117,9 @@ public class SphereTracingManager : MonoBehaviour
 			};
 		}
 	}
+
+	private void OnDestroy()
+	{
+		DestroyImmediate(_targetRenderTexture);
+	}
 }
