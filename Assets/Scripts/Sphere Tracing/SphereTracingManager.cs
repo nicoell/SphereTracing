@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 
-[ExecuteInEditMode]
 public class SphereTracingManager : MonoBehaviour
 {
 	private ComputeKernel[] _computeKernels;
@@ -104,10 +103,10 @@ public class SphereTracingManager : MonoBehaviour
 		var right = Vector3.right * tanFov * camera.aspect;
 		var top = Vector3.up * tanFov;
 
-		frustumVectors[0] = -Vector3.forward - right + top; //TopLeft
-		frustumVectors[1] = -Vector3.forward + right + top; //TopRight
-		frustumVectors[2] = -Vector3.forward + right - top; //BottomRight
-		frustumVectors[3] = -Vector3.forward - right - top; //BottomLeft
+		frustumVectors[0] = (-Vector3.forward - right + top).normalized; //TopLeft
+		frustumVectors[1] = (-Vector3.forward + right + top).normalized; //TopRight
+		frustumVectors[2] = (-Vector3.forward + right - top).normalized; //BottomRight
+		frustumVectors[3] = (-Vector3.forward - right - top).normalized; //BottomLeft
 
 		return frustumVectors;
 	}

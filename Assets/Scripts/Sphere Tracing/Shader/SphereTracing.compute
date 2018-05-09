@@ -86,7 +86,7 @@ void Main(uint3 id)
 	//Construct Ray
 	Ray r;
 	r.Origin = CameraPos;
-	float4 rayDir = normalize(lerp(
+	float4 rayDir = (lerp(
 	    lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], uv.x),
 	    lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], uv.x),
 	    uv.y));
