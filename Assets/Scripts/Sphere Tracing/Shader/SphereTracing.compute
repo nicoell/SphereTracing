@@ -83,17 +83,19 @@ void Main(uint3 id)
     //UVs on Screen
 	float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
 
+    //Construct Jitter Matrix for MultiSampling
     float eps = 2.;
     float epsX = Resolution.x*eps;
-    float epsY = Resolution.x*eps;
-
+    float epsY = Resolution.y*eps;
     float4x2 jitterMatrix = float4x2(-1.0/epsX,  2.0/epsY,
                                       2.0/epsX,  1.0/epsY,
                                      -2.0/epsX, -1.0/epsY,
                                       1.0/epsX, -2.0/epsY);
 
+    //Variable for final color 
     float3 colorSum = float3(0.0, 0.0, 0.0);
-                                     
+
+    //Multisampling-Loop            
     for(int sample = 0; sample < 4; sample++)
     {
                               
