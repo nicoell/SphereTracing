@@ -62,34 +62,34 @@ float2 Map(in float3 pos)
 	return res;
 }
 
-void EvaluateMaterial(in float matID, in Ray r, in float3 pos, in float3 normal, out Material mat)
+void EvaluateMaterial(in Hit hit, in Ray r, in float3 normal, out Material mat)
 {
-    if (matID < MAT_RED+0.5)
+    if (hit.MaterialId < MAT_RED+0.5)
     {
         mat.Color = float3(1, 0, 0);
         mat.Normal = normal;
-    } else if (matID < MAT_BOX+0.5)
+    } else if (hit.MaterialId < MAT_BOX+0.5)
     {
         mat.Color = float3(.5, .5, .5);
         mat.Normal = normal;
-    } else if (matID < MAT_BLUE+0.5)
+    } else if (hit.MaterialId < MAT_BLUE+0.5)
     {
         mat.Color = float3(0, 0, 1);
         mat.Normal = normal;
-    } else if (matID = MAT_GREEN+0.5)
+    } else if (hit.MaterialId = MAT_GREEN+0.5)
     {
         mat.Color = float3(0, 1, 0);
         mat.Normal = normal;
     }
 }
 
-float3 Shading(in float t, in Ray r, in float3 pos, in Material mat)
+float3 Shading(in Hit hit, in Ray r, in Material mat)
 {
     float3 color = float3(.0, .0, .0);
     //Test Light
     {
         float3 lightPos = float3(0.0, 0.0, -6.0);
-        float3 dirToLight = normalize(pos - lightPos);
+        float3 dirToLight = normalize(hit.Position - lightPos);
         
         float diffuseIntensity = saturate(dot(mat.Normal, dirToLight));
         float3 ambient = float3(.1,.1,.1);

@@ -7,6 +7,14 @@ struct Ray
     float3 Direction;
 };
 
+struct Hit
+{
+    float3 Position;
+    float TraceDistance;
+    float MaterialId;
+    float DistanceToWorld;
+};
+
 struct Material
 {
     float3 Color;

@@ -5,14 +5,25 @@ public class SphereTracingManager : MonoBehaviour
 	private ComputeKernel[] _computeKernels;
 	private RenderTexture _targetRenderTexture;
 	private Resolution _targetResolution;
+
+	#region PublicVariables Adjustable in Editor
+	
+	[Header("Dependencies")]
+	public ComputeShader SphereTracingShader;
+	
+	[Header("Quality and Resolution Settings")]
 	public bool UseCustomResolution;
 	public Vector2Int CustomResolution;
 	[Tooltip("Kernels have a different ThreadGroupSizes. 0: High; 1: Mid; 2: Low Size.")]
 	[Range(0, 2)]
 	public int ComputeShaderKernel;
-	public ComputeShader SphereTracingShader;
 	[Range(2, 1024)]
 	public int SphereTracingSteps = 32;
+
+	[Header("Features")]
+	public bool EnableSuperSampling;
+	
+	#endregion	
 
 // Use this for initialization
 	private void Start()
@@ -62,9 +73,11 @@ public class SphereTracingManager : MonoBehaviour
 		SphereTracingShader.SetVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 		SphereTracingShader.SetMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
 		SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
+		SphereTracingShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
 		SphereTracingShader.SetVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
 
 		SphereTracingShader.SetInt("SphereTracingSteps", SphereTracingSteps);
+		SphereTracingShader.SetBool("EnableSuperSampling", EnableSuperSampling);
 
 		SphereTracingShader.Dispatch(_computeKernels[ComputeShaderKernel].Id,
 			_computeKernels[ComputeShaderKernel].ThreadGroups.x, 

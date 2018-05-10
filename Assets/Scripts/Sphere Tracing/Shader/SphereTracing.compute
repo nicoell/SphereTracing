@@ -29,10 +29,11 @@ float4 CameraFrustumEdgeVectors[4];         //Array of the cameras frustum edge 
 float4x4 CameraInverseViewMatrix;       
 float3 CameraPos;   
 float2 Resolution;                          //Width and Height of RenderTexture
+float2 ClippingPlanes;                      //x: Near        y: Far
 float4 Time;                                //x: Time in s   y: x/20     z: deltaTime      w: 1/z
 
 int SphereTracingSteps;
-
+bool EnableSuperSampling;
 
 float3 CalculateNormal(in float3 pos)
 {
@@ -54,31 +55,66 @@ float3 CalculateNormal(in float3 pos)
  *      x: Total trace distance travelled along Ray (t * rayDir)
  *      y: Material ID of hit object (-1 if nothing hit)
  */
-float2 RayMarch(in Ray r)
+void RayMarch(in Ray r, out Hit hit)
 {
-	const float TRACE_DISTANCE_MAX = 1000.0;
-	float2 res = float2(1.0, -1.0); // result
+	hit.TraceDistance = ClippingPlanes.x; //Start tracing at Near Plane
+	hit.MaterialId = -1; //No material is represented by material <= 0
+	hit.DistanceToWorld = ClippingPlanes.y;
 
     //Trace along ray with sphere tracing algorithm. 
 	for(int i = 0; i < SphereTracingSteps; i++)
 	{
-		float epsilon = 0.00015 * res.x;
-		float3 pointOnRay = r.Origin + res.x * r.Direction;
-		float2 hit = Map(pointOnRay);
+		float epsilon = 0.00015 * hit.TraceDistance;
+		float3 pointOnRay = r.Origin + hit.TraceDistance * r.Direction;
+		float2 map = Map(pointOnRay);
 		
-		//If we hit something or exceed the maximum trace distnace we stop immediately.
-		if (hit.x < epsilon || res.x > TRACE_DISTANCE_MAX) break;
+		//If we hit something or exceed the maximum trace distance we stop immediately.
+		if (map.x < epsilon || hit.TraceDistance > ClippingPlanes.y) break;
 		
-		res.x += hit.x;
-		res.y = hit.y;
+		hit.TraceDistance += map.x;
+		hit.MaterialId = map.y;
+		hit.Position = pointOnRay;
+		hit.DistanceToWorld = map.x;
 	}
 	
-	if (res.x > TRACE_DISTANCE_MAX)  res.y = -1.0;
-	
-	return res;
+	if (hit.TraceDistance > ClippingPlanes.y)  hit.MaterialId = -1.0;
 }
 
 void Main(uint3 id)
+{
+    //UVs on Screen
+	float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
+
+    //Create Ray struct
+    Ray r;
+    r.Origin = CameraPos;
+    float4 rayDir = (lerp(
+        lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], uv.x),
+        lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], uv.x),
+        uv.y));
+    r.Direction = mul(CameraInverseViewMatrix, rayDir).xyz;
+	
+    float3 color = float3(.0, .0, .0);
+    
+    Hit hit;
+    RayMarch(r, hit);
+
+    if (hit.MaterialId > 0.5)
+    {
+        float3 normal = CalculateNormal(hit.Position);
+        Material mat;
+        EvaluateMaterial(hit, r, normal, mat);
+    
+        color = Shading(hit, r, mat);
+    } else 
+    {
+        color = Background(r);
+    }
+
+	SphereTracingTexture[uint2(id.xy)] = float4(color, 1.0);    //Write Color to Texture
+}
+
+void MainSuperSampling(uint3 id)
 {
     //UVs on Screen
 	float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
@@ -95,13 +131,14 @@ void Main(uint3 id)
     //Variable for final color 
     float3 colorSum = float3(0.0, 0.0, 0.0);
 
+    //Create Ray struct
+    Ray r;
+    r.Origin = CameraPos;
+    
     //Multisampling-Loop            
     for(int sample = 0; sample < 4; sample++)
     {
-                              
-        //Construct Ray
-	    Ray r;
-	    r.Origin = CameraPos;
+        //Construct Ray Direction
         float jx = uv.x + jitterMatrix[sample][0];
         float jy = uv.y + jitterMatrix[sample][1];
 	    float4 rayDir = (lerp(
@@ -110,39 +147,36 @@ void Main(uint3 id)
 	        jy));
 	    r.Direction = mul(CameraInverseViewMatrix, rayDir).xyz;
 	
-	    float3 color = Background(r); //Evaluate Background
-	    float3 normal = float3(.0, .0, .0);
-	
-	    float2 tm = RayMarch(r); //t: traceDistance, m: materialID
-	    float t = tm.x;
-	    float matID = tm.y;
-	    if (matID > 0.5)
+	    float3 color = float3(.0, .0, .0);
+	    
+	    Hit hit;
+	    RayMarch(r, hit);
+
+	    if (hit.MaterialId > 0.5)
 	    {
-	        float3 pos = r.Origin + t * r.Direction;
-	        normal = CalculateNormal(pos);
+	        float3 normal = CalculateNormal(hit.Position);
 	        Material mat;
+	        EvaluateMaterial(hit, r, normal, mat);
 	    
-	        EvaluateMaterial(matID, r, pos, normal, mat);
-	    
-	        color = Shading(t, r, pos, mat);
+	        color = Shading(hit, r, mat);
 	    } else 
 	    {
-        //No material ID, we hit the background.
+            color = Background(r);
 	    }
         colorSum += color;
 	}
-	    //Write Color to Texture
+	
     colorSum /= 4.0;
-	SphereTracingTexture[uint2(id.xy)] = float4(colorSum, 1.0);
+	SphereTracingTexture[uint2(id.xy)] = float4(colorSum, 1.0); //Write Color to Texture
 }
 
 
 [numthreads(CSMainHighThreadsX, CSMainHighThreadsY, CSMainHighThreadsZ)]
-void CSMainHigh (uint3 id : SV_DispatchThreadID) { Main(id); }
+void CSMainHigh (uint3 id : SV_DispatchThreadID) { if (EnableSuperSampling) { MainSuperSampling(id); } else { Main(id); } }
 
 [numthreads(CSMainMidThreadsX, CSMainMidThreadsY, CSMainMidThreadsZ)]
-void CSMainMid (uint3 id : SV_DispatchThreadID) { Main(id); }
+void CSMainMid (uint3 id : SV_DispatchThreadID) { if (EnableSuperSampling) { MainSuperSampling(id); } else { Main(id); } }
 
 [numthreads(CSMainLowThreadsX, CSMainLowThreadsY, CSMainLowThreadsZ)]
-void CSMainLow (uint3 id : SV_DispatchThreadID) { Main(id); }
+void CSMainLow (uint3 id : SV_DispatchThreadID) { if (EnableSuperSampling) { MainSuperSampling(id); } else { Main(id); } }
 
