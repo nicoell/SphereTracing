@@ -138,13 +138,13 @@ float rayleighPhase(in float cosTheta )
 
 float3 Uncharted2Tonemap(in float3 x)
 {
-    float A1 = 0.15;
+    float A = 0.15;
     float B = 0.50;
     float C = 0.10;
     float D = 0.20;
     float E = 0.02;
     float F = 0.30;
-    return ( ( x * ( A1 * x + C * B ) + D * E ) / ( x * ( A1 * x + B ) + D * F ) ) - E / F;
+    return ( ( x * ( A * x + C * B ) + D * E ) / ( x * ( A * x + B ) + D * F ) ) - E / F;
 }
 
 float3 Background(in Ray r)
