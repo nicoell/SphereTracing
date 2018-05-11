@@ -1,6 +1,7 @@
 #ifndef WORLDLOGIC_INCLUDED
 #define WORLDLOGIC_INCLUDED
 
+#include "UniformVariables.cginc"       //Contains the resources set from CPU.
 #include "ImplicitBasics.cginc"
 #include "StructDefinitions.cginc"
 
@@ -16,7 +17,7 @@
 float2 SphereTest(in float3 pos,float3 translation, float radius, float mat)
 {   
     float4x4 m = float4x4(1.0,0.0,0.0,translation.x,
-                          0.0,1.0,0.0,translation.y, 
+                          0.0,1.0,0.0,translation.y * sin(Time.x), 
                           0.0,0.0,1.0,translation.z, 
                           0.0,0.0,0.0,1.0);
     float3 pt = opTx(pos, m);
@@ -86,14 +87,23 @@ void EvaluateMaterial(in Hit hit, in Ray r, in float3 normal, out Material mat)
 float3 Shading(in Hit hit, in Ray r, in Material mat)
 {
     float3 color = float3(.0, .0, .0);
-    //Test Light
+
+    for(int i = 0; i < LightCount; i++)
     {
-        float3 lightPos = float3(0.0, 0.0, -6.0);
-        float3 dirToLight = normalize(hit.Position - lightPos);
-        
-        float diffuseIntensity = saturate(dot(mat.Normal, dirToLight));
-        float3 ambient = float3(.1,.1,.1);
-        color = mat.Color * diffuseIntensity + ambient * mat.Color;
+        StLightData light = LightBuffer[i];
+        if (light.LightType < 0) break;
+        if (light.LightType == 0)               // Point Light
+        {
+            float3 dirToLight = normalize(hit.Position - light.LightData2.xyz);
+            float diffuseIntensity = saturate(dot(mat.Normal, dirToLight));
+            float3 ambient = float3(.1,.1,.1);
+            color += light.LightData.xyz * mat.Color * diffuseIntensity + ambient * mat.Color;
+        } else if (light.LightType == 1)        // Directional Light
+        {
+            float diffuseIntensity = saturate(dot(mat.Normal, light.LightData2.xyz));
+            float3 ambient = float3(.1,.1,.1);
+            color += light.LightData.xyz * mat.Color * diffuseIntensity + ambient * mat.Color;
+        }
     }
     
     return color;

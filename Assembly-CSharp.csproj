@@ -2,6 +2,7 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <LangVersion>4</LangVersion>
+    <ProjectTypeGuids>{E097FAD1-6243-4DAD-9C02-E9B9EFC3FFC1};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
   </PropertyGroup>
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -52,18 +53,23 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\Scripts\Sphere Tracing\SphereTracingManager.cs" />
+    <Compile Include="Assets\Scripts\SphereTracing\Lights\DirectionalLight.cs" />
+    <Compile Include="Assets\Scripts\SphereTracing\Lights\PointLight.cs" />
+    <Compile Include="Assets\Scripts\SphereTracing\Lights\StLight.cs" />
+    <Compile Include="Assets\Scripts\SphereTracing\Lights\StLightData.cs" />
+    <Compile Include="Assets\Scripts\SphereTracing\SphereTracingManager.cs" />
     <Compile Include="Assets\Scripts\Utils\FreeRoamCamera.cs" />
-    <None Include="Assets\Scripts\Sphere Tracing\Shader\ImplicitBasics.cginc" />
-    <None Include="Assets\Scripts\Sphere Tracing\Shader\WorldLogic.cginc" />
-    <None Include="Assets\Scripts\Sphere Tracing\Shader\StructDefinitions.cginc" />
-    <None Include="Assets\Scripts\Sphere Tracing\Shader\RenderShader.shader" />
-    <None Include="Assets\Scripts\Sphere Tracing\Shader\SphereTracing.compute" />
-    <Reference Include="Unity.PackageManagerUI.Editor">
-      <HintPath>D:/Documents/GitHub/SphereTracing/Library/ScriptAssemblies/Unity.PackageManagerUI.Editor.dll</HintPath>
-    </Reference>
+    <None Include="Assets\Scripts\SphereTracing\Shader\ImplicitBasics.cginc" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\WorldLogic.cginc" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\UniformVariables.cginc" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\StructDefinitions.cginc" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\RenderShader.shader" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\SphereTracing.compute" />
     <Reference Include="UnityEditor.StandardEvents">
       <HintPath>D:/Documents/GitHub/SphereTracing/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.PackageManagerUI.Editor">
+      <HintPath>D:/Documents/GitHub/SphereTracing/Library/ScriptAssemblies/Unity.PackageManagerUI.Editor.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AIModule">
       <HintPath>C:/Program Files/Unity/Hub/Editor/2018.1.0f2/Editor/Data/Managed/UnityEngine/UnityEngine.AIModule.dll</HintPath>

@@ -21,4 +21,11 @@ struct Material
     float3 Normal;
 };
 
+struct StLightData
+{
+    int LightType;
+    float4 LightData;
+    float4 LightData2;
+};
+
 #endif // STRUCTDEFINITIONS_INCLUDED

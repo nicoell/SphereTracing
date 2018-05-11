@@ -15,25 +15,12 @@
 #define CSMainLowThreadsZ 1
 
 
+#include "UniformVariables.cginc"       //Contains the resources set from CPU.
 #include "ImplicitBasics.cginc"         //Contains the basics like primitives or operations.
 #include "StructDefinitions.cginc"      //Contains definitons of structs.     
 #include "WorldLogic.cginc"             //Contains the map of the world and related stuff unique to the world.
 
-/*
- * Variables set from CPU side, like uniforms
- */
-RWTexture2D<float4> SphereTracingTexture;   //Target Render Texture with Read Write Access
 
-
-float4 CameraFrustumEdgeVectors[4];         //Array of the cameras frustum edge vectors, clockwise beginning in the topleft.
-float4x4 CameraInverseViewMatrix;       
-float3 CameraPos;   
-float2 Resolution;                          //Width and Height of RenderTexture
-float2 ClippingPlanes;                      //x: Near        y: Far
-float4 Time;                                //x: Time in s   y: x/20     z: deltaTime      w: 1/z
-
-int SphereTracingSteps;
-bool EnableSuperSampling;
 
 float3 CalculateNormal(in float3 pos)
 {
@@ -80,15 +67,13 @@ void RayMarch(in Ray r, out Hit hit)
 	if (hit.TraceDistance > ClippingPlanes.y)  hit.MaterialId = -1.0;
 }
 
-
 void Main(uint3 id)
 {
     //UVs on Screen
     float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
 
     //Set Sampling Variables
-    bool supersampling = EnableSuperSampling;
-    int sampleSize = supersampling? 4 : 1;
+    int sampleSize = EnableSuperSampling ? 4 : 1;
 
     //Construct Jitter Matrix for MultiSampling
     float eps = 2.;
@@ -110,8 +95,8 @@ void Main(uint3 id)
     for(int sample = 0; sample < sampleSize; sample++)
     {
         //Construct Ray Direction
-        float jx = supersampling? uv.x + jitterMatrix[sample][0]: uv.x;
-        float jy = supersampling? uv.y + jitterMatrix[sample][1]: uv.y;
+        float jx = EnableSuperSampling ? uv.x + jitterMatrix[sample][0]: uv.x;
+        float jy = EnableSuperSampling ? uv.y + jitterMatrix[sample][1]: uv.y;
 
 	    float4 rayDir = (lerp(
 	        lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], jx),
