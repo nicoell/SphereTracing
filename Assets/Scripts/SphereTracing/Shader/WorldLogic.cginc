@@ -56,7 +56,6 @@ float2 Map(in float3 pos)
     res = opU(res, SphereTest(pos, float3(8.0,1.0,-16.0), 2.0, MAT_RED));
 	res = opU(res, SphereTest(pos, float3(-8.0,1.0,-16.0), 2.0, MAT_BLUE));
     res = opU(res, SphereTest(pos, float3(0.0,1.0,0.0), 2.0, MAT_GREEN));
-    res = opU(res, SphereTest(pos, float3(0.0,0.0,-8.0), .4, MAT_BOX));
 
 	//float displacement = displacement = sin(5.0 * pos.x) * sin(5.0 * pos.y) * sin(5.0 * pos.z) * 0.25;
 	//res += displacement;
@@ -68,18 +67,22 @@ void EvaluateMaterial(in Hit hit, in Ray r, in float3 normal, out Material mat)
 {
     if (hit.MaterialId < MAT_RED+0.5)
     {
+        mat.Roughness = .5;
         mat.Color = float3(1, 0, 0);
         mat.Normal = normal;
     } else if (hit.MaterialId < MAT_BOX+0.5)
     {
+        mat.Roughness = .9;
         mat.Color = float3(.5, .5, .5);
         mat.Normal = normal;
     } else if (hit.MaterialId < MAT_BLUE+0.5)
     {
-        mat.Color = float3(0, 0, 1);
+        mat.Roughness = .5;
+        mat.Color = float3(0., 0., 1.);
         mat.Normal = normal;
     } else if (hit.MaterialId = MAT_GREEN+0.5)
     {
+        mat.Roughness = .5;
         mat.Color = float3(0, 1, 0);
         mat.Normal = normal;
     }
@@ -89,23 +92,23 @@ float3 Shading(in Hit hit, in Ray r, in Material mat)
 {
     float3 color = float3(.0, .0, .0);
 
-    for(int i = 0; i < LightCount; i++)
-    {
-        StLightData light = LightBuffer[i];
-        if (light.LightType < 0) break;
-        if (light.LightType == 0)               // Point Light
+        for(int i = 0; i < LightCount; i++)
         {
-            float3 dirToLight = normalize(hit.Position - light.LightData2.xyz);
-            float diffuseIntensity = saturate(dot(mat.Normal, dirToLight));
-            float3 ambient = float3(.1,.1,.1);
-            color += light.LightData.xyz * mat.Color * diffuseIntensity + ambient * mat.Color;
-        } else if (light.LightType == 1)        // Directional Light
-        {
-            float diffuseIntensity = saturate(dot(mat.Normal, light.LightData2.xyz));
-            float3 ambient = float3(.1,.1,.1);
-            color += light.LightData.xyz * mat.Color * diffuseIntensity + ambient * mat.Color;
-        }
-    }
+            StLightData light = LightBuffer[i];
+            if (light.LightType < 0) break;
+            if (light.LightType == 0)               // Point Light
+            {
+                float3 dirToLight = normalize(light.LightData2.xyz - hit.Position);
+                float diffuseIntensity = saturate(dot(mat.Normal, dirToLight));
+                float3 ambient = float3(.1,.1,.1);
+                color += light.LightData.xyz * mat.Color * diffuseIntensity + ambient * mat.Color;
+            } else if (light.LightType == 1)        // Directional Light
+            {
+                float diffuseIntensity = saturate(dot(mat.Normal, light.LightData2.xyz));
+                float3 ambient = float3(.1,.1,.1);
+                color += light.LightData.xyz * mat.Color * diffuseIntensity + ambient * mat.Color;
+            }
+         }
     
     return color;
 }
