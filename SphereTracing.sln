@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio for Mac
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SphereTracing", "Assembly-CSharp.csproj", "{40535C29-4692-A1CE-F25E-9EC6CED357C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SphereTracing", "Assembly-CSharp-Editor-firstpass.csproj", "{27ACFA2C-E2E6-8B88-D9CB-6DF4EA46B375}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SphereTracing", "Assembly-CSharp-Editor.csproj", "{B0387E37-D7C0-2A93-2068-C2BB80D6A0CC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,10 +15,10 @@ Global
 		{40535C29-4692-A1CE-F25E-9EC6CED357C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{40535C29-4692-A1CE-F25E-9EC6CED357C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{40535C29-4692-A1CE-F25E-9EC6CED357C6}.Release|Any CPU.Build.0 = Release|Any CPU
-		{27ACFA2C-E2E6-8B88-D9CB-6DF4EA46B375}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{27ACFA2C-E2E6-8B88-D9CB-6DF4EA46B375}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{27ACFA2C-E2E6-8B88-D9CB-6DF4EA46B375}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{27ACFA2C-E2E6-8B88-D9CB-6DF4EA46B375}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0387E37-D7C0-2A93-2068-C2BB80D6A0CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0387E37-D7C0-2A93-2068-C2BB80D6A0CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0387E37-D7C0-2A93-2068-C2BB80D6A0CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0387E37-D7C0-2A93-2068-C2BB80D6A0CC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
