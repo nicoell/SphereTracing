@@ -70,7 +70,7 @@ float3 EvaluateColor(in Ray r, in Hit hit, int maxSteps)
 {
 
     //Variables for recursion
-    float3 color;
+    float3 color = float3(0.,0.,0.);
     Material mat;
     mat.ReflectiveF = 1;
     float absReflectiveF = 1;
@@ -162,11 +162,10 @@ void Main(uint3 id)
 	        lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], jx),
 	        jy));
 	    r.Direction = mul(CameraInverseViewMatrix, rayDir).xyz;
-	
-	    
+
 	    Hit hit;
 	    RayMarch(r, hit);
-        float3 color = EvaluateColor(r , hit , 5);
+        float3 color = EvaluateColor(r , hit , 1);
 
         colorSum += color; //Sum up Color
 	}
