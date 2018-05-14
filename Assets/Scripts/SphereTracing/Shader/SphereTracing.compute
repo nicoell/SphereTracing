@@ -23,7 +23,7 @@
 
 float3 CalculateNormal(in float3 pos)
 {
-	const float3 epsilon = float3(0.001, 0.0, 0.0);
+	const float3 epsilon = float3(0.01, 0.0, 0.0);
 	
 	float gradientX = Map(pos + epsilon.xyy).x - Map(pos - epsilon.xyy).x;
 	float gradientY = Map(pos + epsilon.yxy).x - Map(pos - epsilon.yxy).x;
@@ -87,7 +87,8 @@ float3 EvaluateColor(in Ray r, in Hit hit, int maxSteps)
         //Calculate Ray and Hit. Use initial Hit in first iteration
         if (step > 0) 
         { 
-            rR.Direction = normalize(r.Direction - 2 * dot(r.Direction, normal) * normal);
+            
+            rR.Direction = normalize(r.Direction - 2 * normalize( dot(r.Direction, normal) * normal)) ;
             rR.Origin = hit.Position;
             RayMarch(rR, hitR); 
         } 
@@ -118,7 +119,7 @@ float3 EvaluateColor(in Ray r, in Hit hit, int maxSteps)
         //if the backround is hit
         else
         {
-            color = lerp(color, Background(r), absReflectiveF);
+            color = lerp(color, Background(rR), absReflectiveF);
             absReflectiveF = 0; //stop the iteration
          }
          step++;
@@ -165,7 +166,7 @@ void Main(uint3 id)
 
 	    Hit hit;
 	    RayMarch(r, hit);
-        float3 color = EvaluateColor(r , hit , 1);
+        float3 color = EvaluateColor(r , hit , 2);
 
         colorSum += color; //Sum up Color
 	}

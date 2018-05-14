@@ -72,17 +72,17 @@ void EvaluateMaterial(in Hit hit, in Ray r, in float3 normal, out Material mat)
         mat.Normal = normal;
     } else if (hit.MaterialId < MAT_BOX+0.5)
     {
-        mat.ReflectiveF = .5;
+        mat.ReflectiveF = .2;
         mat.Color = float3(.5, .5, .5);
         mat.Normal = normal;
     } else if (hit.MaterialId < MAT_BLUE+0.5)
     {
-        mat.ReflectiveF = .1;
+        mat.ReflectiveF = 0;
         mat.Color = float3(0., 0., 1.);
         mat.Normal = normal;
     } else if (hit.MaterialId = MAT_GREEN+0.5)
     {
-        mat.ReflectiveF = .1;
+        mat.ReflectiveF = 1;
         mat.Color = float3(0, 1, 0);
         mat.Normal = normal;
     }
