@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using SphereTracing.Lights;
+using SphereTracing.Materials;
 using UnityEngine;
 
 namespace SphereTracing
@@ -70,12 +71,14 @@ namespace SphereTracing
 			SphereTracingShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
 
 			InitLights();
+			InitMaterials();
 		}
 
 		// Update is called once per frame
 		private void Update()
 		{
 			UpdateStLights();
+			UpdateStMaterials();
 
 			SphereTracingShader.SetTexture(_computeKernels[ComputeShaderKernel].Id, "SphereTracingTexture",
 				_targetRenderTexture);
@@ -202,6 +205,28 @@ namespace SphereTracing
 			SphereTracingShader.SetBuffer(_computeKernels[ComputeShaderKernel].Id, "LightBuffer", _stLightBuffer);
 		}
 
+		#endregion
+		
+		#region Material
+
+		public StMaterial[] StMaterials;
+		private ComputeBuffer _stMaterialBuffer;
+
+		private void InitMaterials()
+		{
+			_stMaterialBuffer = new ComputeBuffer(StMaterials.Length, StMaterialData.GetSize(), ComputeBufferType.Default);
+			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
+
+			SphereTracingShader.SetInt("MaterialCount", StMaterials.Length);
+		}
+		
+		private void UpdateStMaterials()
+		{
+			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
+
+			SphereTracingShader.SetBuffer(_computeKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
+		}
+		
 		#endregion
 	}
 }

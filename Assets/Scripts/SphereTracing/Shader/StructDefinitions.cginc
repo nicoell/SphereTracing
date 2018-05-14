@@ -11,7 +11,7 @@ struct Hit
 {
     float3 Position;
     float TraceDistance;
-    float MaterialId;
+    int MaterialId;
     float DistanceToWorld;
 };
 
@@ -27,6 +27,13 @@ struct StLightData
     int LightType;
     float4 LightData;
     float4 LightData2;
+};
+
+struct StMaterialData
+{
+    int MaterialType;
+    float4 Color;
+    float Roughness;
 };
 
 #endif // STRUCTDEFINITIONS_INCLUDED

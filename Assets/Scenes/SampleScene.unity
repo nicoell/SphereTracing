@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.12731725, g: 0.1341475, b: 0.12107855, a: 1}
+  m_IndirectSpecularColor: {r: 0.12731749, g: 0.13414757, b: 0.1210787, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -157,6 +157,9 @@ MonoBehaviour:
   SphereTracingSteps: 56
   EnableSuperSampling: 0
   LightCount: 2
+  StMaterials:
+  - {fileID: 0}
+  - {fileID: 0}
 --- !u!20 &282840813
 Camera:
   m_ObjectHideFlags: 0
