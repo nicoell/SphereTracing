@@ -14,7 +14,6 @@
 #define CSMainLowThreadsY 8
 #define CSMainLowThreadsZ 1
 
-
 #include "UniformVariables.cginc"       //Contains the resources set from CPU.
 #include "ImplicitBasics.cginc"         //Contains the basics like primitives or operations.
 #include "StructDefinitions.cginc"      //Contains definitons of structs.     
@@ -24,7 +23,7 @@
 
 float3 CalculateNormal(in float3 pos)
 {
-	const float3 epsilon = float3(0.001, 0.0, 0.0);
+	const float3 epsilon = float3(0.01, 0.0, 0.0);
 	
 	float gradientX = Map(pos + epsilon.xyy).x - Map(pos - epsilon.xyy).x;
 	float gradientY = Map(pos + epsilon.yxy).x - Map(pos - epsilon.yxy).x;
@@ -67,6 +66,67 @@ void RayMarch(in Ray r, out Hit hit)
 	if (hit.TraceDistance > ClippingPlanes.y)  hit.MaterialId = -1.0;
 }
 
+float3 EvaluateColor(in Ray r, in Hit hit, int maxSteps)
+{
+
+    //Variables for recursion
+    float3 color = float3(0.,0.,0.);
+    Material mat;
+    mat.ReflectiveF = 1;
+    float absReflectiveF = 1;
+    float3 normal;
+
+    int step = 0;
+
+    //"Recursion"-Loop
+    while(step < maxSteps && mat.ReflectiveF * absReflectiveF > 0.0)
+    {   
+        Ray rR;
+        Hit hitR;
+
+        //Calculate Ray and Hit. Use initial Hit in first iteration
+        if (step > 0) 
+        { 
+            
+            rR.Direction = normalize(r.Direction - 2 * normalize( dot(r.Direction, normal) * normal)) ;
+            rR.Origin = hit.Position;
+            RayMarch(rR, hitR); 
+        } 
+        else 
+        {   
+            rR = r;
+            hitR = hit; 
+        }
+            
+        //if an object is hit
+        if (hitR.MaterialId > 0.5)
+        {
+            float3 normalR = CalculateNormal(hitR.Position);
+            Material matR;
+            EvaluateMaterial(hitR, rR, normalR, matR);
+
+            //Calculate new Color and new Reflective Factor
+            color =  lerp(color, Shading(hitR, rR, matR) , absReflectiveF);
+            absReflectiveF *= matR.ReflectiveF;
+
+            //safe variables for next step
+            mat = matR;
+            hit = hitR;
+            r = rR;
+            normal = normalR;
+        }
+
+        //if the backround is hit
+        else
+        {
+            color = lerp(color, Background(rR), absReflectiveF);
+            absReflectiveF = 0; //stop the iteration
+         }
+         step++;
+    }
+    return color;
+}
+
 void Main(uint3 id)
 {
     //UVs on Screen
@@ -103,52 +163,11 @@ void Main(uint3 id)
 	        lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], jx),
 	        jy));
 	    r.Direction = mul(CameraInverseViewMatrix, rayDir).xyz;
-	
-	    float3 color = float3(.0, .0, .0);
-	    
+
 	    Hit hit;
 	    RayMarch(r, hit);
+        float3 color = EvaluateColor(r , hit , 2);
 
-        //if Hit, calculate color 
-	    if (hit.MaterialId > 0.5)
-	    {
-	        float3 normal = CalculateNormal(hit.Position);
-	        Material mat;
-	        EvaluateMaterial(hit, r, normal, mat);
-	    
-	        color = Shading(hit, r, mat);
-
-
-            //One Time Reflective Calculation. Can be extended to n Reflective Passes....
-            if(mat.Roughness < 1.0)
-            {
-                float3 colorReflective = float3(0.,0.,0.);
-                Ray rReflective;
-                Hit hitReflective;
-                rReflective.Origin = hit.Position;
-                float3 rayDir = r.Direction - 2 * dot(r.Direction, mat.Normal) * mat.Normal;
-                rReflective.Direction = rayDir;
-                RayMarch(rReflective, hitReflective);
-
-                if (hitReflective.MaterialId > 0.5)
-                {
-                    float3 normalReflective = CalculateNormal(hitReflective.Position);
-                     
-                    Material matReflective;
-                    EvaluateMaterial(hitReflective, rReflective, normalReflective, matReflective);
-                    colorReflective = Shading(hitReflective, rReflective, matReflective);
-                    color = lerp(color, colorReflective, 1.-mat.Roughness);
-
-                } else 
-                    {
-                        colorReflective = Background(rReflective);
-                    }
-                 
-            }
-	    } else 
-	    {
-            color = Background(r);
-	    }
         colorSum += color; //Sum up Color
 	}
  

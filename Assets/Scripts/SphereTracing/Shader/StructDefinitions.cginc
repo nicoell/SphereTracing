@@ -18,7 +18,7 @@ struct Hit
 struct Material
 {
     float3 Color;
-    float Roughness;
+    float ReflectiveF;
     float3 Normal;
 };
 
