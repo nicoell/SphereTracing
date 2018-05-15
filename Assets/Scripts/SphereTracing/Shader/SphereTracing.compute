@@ -42,6 +42,7 @@ float3 CalculateNormal(in float3 pos)
  */
 void RayMarch(in Ray r, inout Hit hit)
 {
+    //TODO: Don't use clippingplane as starting trace distance for reflections 
 	hit.TraceDistance = ClippingPlanes.x; //Start tracing at Near Plane
 	hit.MaterialId = -1; //No material is represented by material <= 0
 	hit.Normal = (float3) 0;
