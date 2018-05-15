@@ -158,8 +158,10 @@ MonoBehaviour:
   EnableSuperSampling: 0
   LightCount: 2
   StMaterials:
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 11400000, guid: d4562ad213ac2e745947311169ee0846, type: 2}
+  - {fileID: 11400000, guid: 51db7d2e4bd0c8d4e8062480961ee18c, type: 2}
+  - {fileID: 11400000, guid: 2a3b711b99116be4f99211759c868e9e, type: 2}
+  - {fileID: 11400000, guid: 0c57a3dab6f7e3e4393e07b1ac6f7cf4, type: 2}
 --- !u!20 &282840813
 Camera:
   m_ObjectHideFlags: 0
@@ -258,7 +260,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsActive: 0
   SphereTracingManager: {fileID: 282840812}
-  LightColor: {r: 0.9846988, g: 1, b: 0, a: 1}
+  LightColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!4 &2086221648
 Transform:
   m_ObjectHideFlags: 0

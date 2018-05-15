@@ -7,8 +7,8 @@
  * Variables set from CPU side, like uniforms
  */
 RWTexture2D<float4> SphereTracingTexture;   //Target Render Texture with Read Write Access
-StructuredBuffer<StLightData> LightBuffer;
-StructuredBuffer<StMaterialData> MaterialBuffer;
+StructuredBuffer<StLight> LightBuffer;
+StructuredBuffer<StMaterial> MaterialBuffer;
 
 float4 CameraFrustumEdgeVectors[4];         //Array of the cameras frustum edge vectors, clockwise beginning in the topleft.
 float4x4 CameraInverseViewMatrix;       
@@ -20,6 +20,7 @@ float4 Time;                                //x: Time in s   y: x/20     z: delt
 int MaterialCount;
 int LightCount;
 int SphereTracingSteps;
+int AmbientOcclusionSamples;
 bool EnableSuperSampling;
 
 #endif // UNIFORMVARIABLES_INCLUDED

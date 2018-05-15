@@ -139,6 +139,7 @@ namespace SphereTracing
 		private void OnDestroy()
 		{
 			if (_stLightBuffer != null) _stLightBuffer.Release();
+			if (_stMaterialBuffer != null) _stMaterialBuffer.Release();
 			if (_targetRenderTexture != null) DestroyImmediate(_targetRenderTexture);
 		}
 

@@ -20,7 +20,6 @@
 #include "WorldLogic.cginc"             //Contains the map of the world and related stuff unique to the world.
 
 
-
 float3 CalculateNormal(in float3 pos)
 {
 	const float3 epsilon = float3(0.01, 0.0, 0.0);
@@ -41,15 +40,18 @@ float3 CalculateNormal(in float3 pos)
  *      x: Total trace distance travelled along Ray (t * rayDir)
  *      y: Material ID of hit object (-1 if nothing hit)
  */
-void RayMarch(in Ray r, out Hit hit)
+void RayMarch(in Ray r, inout Hit hit)
 {
 	hit.TraceDistance = ClippingPlanes.x; //Start tracing at Near Plane
 	hit.MaterialId = -1; //No material is represented by material <= 0
+	hit.Normal = (float3) 0;
+	hit.Material = (StMaterial) 0;
 	hit.DistanceToWorld = ClippingPlanes.y;
 
     //Trace along ray with sphere tracing algorithm. 
 	for(int i = 0; i < SphereTracingSteps; i++)
 	{
+	
 		float epsilon = 0.00015 * hit.TraceDistance;
 		float3 pointOnRay = r.Origin + hit.TraceDistance * r.Direction;
 		float2 map = Map(pointOnRay);
@@ -68,62 +70,48 @@ void RayMarch(in Ray r, out Hit hit)
 
 float3 EvaluateColor(in Ray r, in Hit hit, int maxSteps)
 {
-
     //Variables for recursion
     float3 color = float3(0.,0.,0.);
-    Material mat;
-    mat.ReflectiveF = 1;
-    float absReflectiveF = 1;
+    float absReflectiveF = 1.0;
     float3 normal;
-
     int step = 0;
-
-    //"Recursion"-Loop
-    while(step < maxSteps && mat.ReflectiveF * absReflectiveF > 0.0)
+    
+    Ray rR = r;
+    Hit hitR = hit;
+    
+    do  //"Recursion"-Loop
     {   
-        Ray rR;
-        Hit hitR;
-
-        //Calculate Ray and Hit. Use initial Hit in first iteration
-        if (step > 0) 
-        { 
-            
-            rR.Direction = normalize(r.Direction - 2 * normalize( dot(r.Direction, normal) * normal)) ;
-            rR.Origin = hit.Position;
-            RayMarch(rR, hitR); 
-        } 
-        else 
-        {   
-            rR = r;
-            hitR = hit; 
-        }
-            
         //if an object is hit
-        if (hitR.MaterialId > 0.5)
+        if (sign(hitR.MaterialId) >= 0)
         {
             float3 normalR = CalculateNormal(hitR.Position);
-            Material matR;
-            EvaluateMaterial(hitR, rR, normalR, matR);
+            EvaluateMaterial(hitR, rR, normalR);
 
             //Calculate new Color and new Reflective Factor
-            color =  lerp(color, Shading(hitR, rR, matR) , absReflectiveF);
-            absReflectiveF *= matR.ReflectiveF;
+            color = lerp(color, Shading(hitR, rR), absReflectiveF);
+            absReflectiveF *= hitR.Material.ReflectiveF;
 
             //safe variables for next step
-            mat = matR;
             hit = hitR;
             r = rR;
             normal = normalR;
         }
-
-        //if the backround is hit
+        //if the background is hit
         else
         {
             color = lerp(color, Background(rR), absReflectiveF);
-            absReflectiveF = 0; //stop the iteration
-         }
-         step++;
-    }
+            break;
+        }
+        
+        step++;
+        if (step >= maxSteps || sign(hit.Material.ReflectiveF * absReflectiveF) < 1) break;
+        
+        rR.Direction = normalize(r.Direction - 2 * normalize( dot(r.Direction, normal) * normal)) ;
+        rR.Origin = hit.Position;
+        RayMarch(rR, hitR); 
+
+    } while (step < maxSteps);
+    
     return color;
 }
 
@@ -134,7 +122,7 @@ void Main(uint3 id)
 
     //Set Sampling Variables
     int sampleSize = EnableSuperSampling ? 4 : 1;
-
+    
     //Construct Jitter Matrix for MultiSampling
     float eps = 2.;
     float epsX = Resolution.x*eps;
@@ -162,7 +150,7 @@ void Main(uint3 id)
 	        lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], jx),
 	        lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], jx),
 	        jy));
-	    r.Direction = mul(CameraInverseViewMatrix, rayDir).xyz;
+	    r.Direction = normalize(mul(CameraInverseViewMatrix, rayDir).xyz);
 
 	    Hit hit;
 	    RayMarch(r, hit);

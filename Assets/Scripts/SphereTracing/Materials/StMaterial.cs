@@ -13,7 +13,8 @@ namespace SphereTracing.Materials
 	{
 		public int MaterialType;
 		public Color Color;
-		public float Roughness;
+		[Range(0,1)]
+		public float ReflectiveF;
 		
 		/// <summary>
 		/// Returns the size of the struct in Bytes.
