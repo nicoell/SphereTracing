@@ -14,4 +14,4 @@ MonoBehaviour:
   MaterialData:
     MaterialType: 0
     Color: {r: 0.5019608, g: 0.5019608, b: 0.5019608, a: 0}
-    ReflectiveF: 0.2
+    ReflectiveF: 0

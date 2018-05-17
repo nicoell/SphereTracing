@@ -30,6 +30,16 @@ namespace SphereTracing
 		public bool EnableSuperSampling;
 		public int LightCount = 1;
 
+		public bool EnableAmbientOcclusion;
+		[Range(1, 32)]
+		public int AmbientOcclusionSamples = 5;
+		[Range(1, 32)]
+		public int AmbientOcclusionSteps = 5;
+		[Range(0.01f, 100f)]
+		public float AmbientOcclusionMaxDistance = 1.0f;
+		[Range(0.01f, 3f)]
+		public float AmbientOcclusionAmplification = 1.0f;
+
 		#endregion
 		
 		// Use this for initialization
@@ -91,6 +101,12 @@ namespace SphereTracing
 			SphereTracingShader.SetInt("SphereTracingSteps", SphereTracingSteps);
 			SphereTracingShader.SetBool("EnableSuperSampling", EnableSuperSampling);
 
+			SphereTracingShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
+			SphereTracingShader.SetInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
+			SphereTracingShader.SetInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
+			SphereTracingShader.SetFloat("AmbientOcclusionMaxDistance", AmbientOcclusionMaxDistance);
+			SphereTracingShader.SetFloat("AmbientOcclusionAmplification", AmbientOcclusionAmplification);
+			
 			SphereTracingShader.Dispatch(_computeKernels[ComputeShaderKernel].Id,
 				_computeKernels[ComputeShaderKernel].ThreadGroups.x,
 				_computeKernels[ComputeShaderKernel].ThreadGroups.y,

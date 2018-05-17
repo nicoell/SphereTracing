@@ -42,125 +42,120 @@ float3 CalculateNormal(in float3 pos)
  */
 void RayMarch(in Ray r, inout Hit hit)
 {
-    //TODO: Don't use clippingplane as starting trace distance for reflections 
+	//TODO: Don't use clippingplane as starting trace distance for reflections 
 	hit.TraceDistance = ClippingPlanes.x; //Start tracing at Near Plane
 	hit.MaterialId = -1; //No material is represented by material <= 0
 	hit.Normal = (float3) 0;
 	hit.Material = (StMaterial) 0;
 	hit.DistanceToWorld = ClippingPlanes.y;
 
-    //Trace along ray with sphere tracing algorithm. 
+	//Trace along ray with sphere tracing algorithm. 
 	for(int i = 0; i < SphereTracingSteps; i++)
 	{
-	
 		float epsilon = 0.00015 * hit.TraceDistance;
 		float3 pointOnRay = r.Origin + hit.TraceDistance * r.Direction;
 		float2 map = Map(pointOnRay);
 		
 		//If we hit something or exceed the maximum trace distance we stop immediately.
-		if (map.x < epsilon || hit.TraceDistance > ClippingPlanes.y) break;
+		if (map.x < epsilon || hit.TraceDistance > ClippingPlanes.y){
+		    hit.TraceDistance += min(map.x, 0); //step back to previous hit
+		    break;
+		}
 		
 		hit.TraceDistance += map.x;
 		hit.MaterialId = map.y;
-		hit.Position = pointOnRay;
 		hit.DistanceToWorld = map.x;
 	}
 	
+    hit.Position = r.Origin + hit.TraceDistance * r.Direction;
 	if (hit.TraceDistance > ClippingPlanes.y)  hit.MaterialId = -1.0;
 }
 
 float3 EvaluateColor(in Ray r, in Hit hit, int maxSteps)
 {
-    //Variables for recursion
-    float3 color = float3(0.,0.,0.);
-    float absReflectiveF = 1.0;
-    float3 normal;
-    int step = 0;
-    
-    Ray rR = r;
-    Hit hitR = hit;
-    
-    do  //"Recursion"-Loop
-    {   
-        //if an object is hit
-        if (sign(hitR.MaterialId) >= 0)
-        {
-            float3 normalR = CalculateNormal(hitR.Position);
-            EvaluateMaterial(hitR, rR, normalR);
+	//Variables for recursion
+	float3 color = float3(0.,0.,0.);
+	float absReflectiveF = 1.0;
+	float3 normal;
+	int step = 0;
+	
+	do  //"Recursion"-Loop
+	{   
+		//if an object is hit
+		if (sign(hit.MaterialId) >= 0)
+		{
+			normal = CalculateNormal(hit.Position);
+			EvaluateMaterial(hit, r, normal);
 
-            //Calculate new Color and new Reflective Factor
-            color = lerp(color, Shading(hitR, rR), absReflectiveF);
-            absReflectiveF *= hitR.Material.ReflectiveF;
+			//Calculate new Color and new Reflective Factor
+			color = lerp(color, Shading(hit, r), absReflectiveF);
+			absReflectiveF *= hit.Material.ReflectiveF;
+		}
+		//if the background is hit
+		else
+		{
+			color = lerp(color, Background(r), absReflectiveF);
+			break;
+		}
+		
+		step++;
+		if (step >= maxSteps || sign(hit.Material.ReflectiveF * absReflectiveF) < 1) break;
+		
+		r.Direction = normalize(r.Direction - 2 * normalize( dot(r.Direction, normal) * normal)) ;
+		r.Origin = hit.Position;
+		RayMarch(r, hit); 
 
-            //safe variables for next step
-            hit = hitR;
-            r = rR;
-            normal = normalR;
-        }
-        //if the background is hit
-        else
-        {
-            color = lerp(color, Background(rR), absReflectiveF);
-            break;
-        }
-        
-        step++;
-        if (step >= maxSteps || sign(hit.Material.ReflectiveF * absReflectiveF) < 1) break;
-        
-        rR.Direction = normalize(r.Direction - 2 * normalize( dot(r.Direction, normal) * normal)) ;
-        rR.Origin = hit.Position;
-        RayMarch(rR, hitR); 
-
-    } while (step < maxSteps);
-    
-    return color;
+	} while (step < maxSteps);
+	
+	return color;
 }
 
 void Main(uint3 id)
 {
-    //UVs on Screen
-    float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
+	//UVs on Screen
+	float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
 
-    //Set Sampling Variables
-    int sampleSize = EnableSuperSampling ? 4 : 1;
-    
-    //Construct Jitter Matrix for MultiSampling
-    float eps = 2.;
-    float epsX = Resolution.x*eps;
-    float epsY = Resolution.y*eps;
-    float4x2 jitterMatrix = float4x2(-1.0/epsX,  2.0/epsY,
-                                      2.0/epsX,  1.0/epsY,
-                                     -2.0/epsX, -1.0/epsY,
-                                      1.0/epsX, -2.0/epsY);
+	//Set Sampling Variables
+	int sampleSize = EnableSuperSampling ? 4 : 1;
+	
+	//Construct Jitter Matrix for MultiSampling
+	float eps = 2.;
+	float epsX = Resolution.x*eps;
+	float epsY = Resolution.y*eps;
+	float4x2 jitterMatrix = float4x2(-1.0/epsX,  2.0/epsY,
+									  2.0/epsX,  1.0/epsY,
+									 -2.0/epsX, -1.0/epsY,
+									  1.0/epsX, -2.0/epsY);
 
-    //Variable for final color 
-    float3 colorSum = float3(0.0, 0.0, 0.0);
+	//Variable for final color 
+	float3 colorSum = float3(0.0, 0.0, 0.0);
 
-    //Create Ray struct
-    Ray r;
-    r.Origin = CameraPos;
+	//Create Ray struct
+	Ray r;
+	r.Origin = CameraPos;
 
-    //Sampling-Loop            
-    for(int sample = 0; sample < sampleSize; sample++)
-    {
-        //Construct Ray Direction
-        float jx = EnableSuperSampling ? uv.x + jitterMatrix[sample][0]: uv.x;
-        float jy = EnableSuperSampling ? uv.y + jitterMatrix[sample][1]: uv.y;
+	//Sampling-Loop            
+	for(int sample = 0; sample < sampleSize; sample++)
+	{
+		//Construct Ray Direction
+		float jx = EnableSuperSampling ? uv.x + jitterMatrix[sample][0]: uv.x;
+		float jy = EnableSuperSampling ? uv.y + jitterMatrix[sample][1]: uv.y;
+        r.uv = float2(jx, jy);
+        
+		float4 rayDir = (lerp(
+			lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], jx),
+			lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], jx),
+			jy));
+		r.Direction = (mul(CameraInverseViewMatrix, rayDir).xyz);
 
-	    float4 rayDir = (lerp(
-	        lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], jx),
-	        lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], jx),
-	        jy));
-	    r.Direction = normalize(mul(CameraInverseViewMatrix, rayDir).xyz);
+		Hit hit;
+		RayMarch(r, hit);
+		float3 color = EvaluateColor(r , hit , 10);
 
-	    Hit hit;
-	    RayMarch(r, hit);
-        float3 color = EvaluateColor(r , hit , 2);
-
-        colorSum += color; //Sum up Color
+		colorSum += color; //Sum up Color
 	}
  
-    colorSum /= sampleSize; //Calculate mean Color
+	colorSum /= sampleSize; //Calculate mean Color
 	SphereTracingTexture[uint2(id.xy)] = float4(colorSum, 1.0); //Write Color to Texture
 }
 

@@ -3,32 +3,33 @@
 
 struct Ray
 {
-    float3 Origin;
-    float3 Direction;
+    float2 uv;
+	float3 Origin;
+	float3 Direction;
 };
 
 struct StMaterial
 {
-    int MaterialType;
-    float4 Color;
-    float ReflectiveF;
+	int MaterialType;
+	float4 Color;
+	float ReflectiveF;
 };
 
 struct Hit
 {
-    float3 Position;
-    float3 Normal;
-    float TraceDistance;
-    float DistanceToWorld;
-    int MaterialId;
-    StMaterial Material;
+	float3 Position;
+	float3 Normal;
+	float TraceDistance;
+	float DistanceToWorld;
+	int MaterialId;
+	StMaterial Material;
 };
 
 struct StLight
 {
-    int LightType;
-    float4 LightData;
-    float4 LightData2;
+	int LightType;
+	float4 LightData;
+	float4 LightData2;
 };
 
 

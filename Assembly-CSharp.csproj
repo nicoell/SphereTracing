@@ -57,13 +57,15 @@
     <Compile Include="Assets\Scripts\SphereTracing\Lights\PointLight.cs" />
     <Compile Include="Assets\Scripts\SphereTracing\Lights\StLight.cs" />
     <Compile Include="Assets\Scripts\SphereTracing\Lights\StLightData.cs" />
+    <Compile Include="Assets\Scripts\SphereTracing\Materials\StMaterial.cs" />
     <Compile Include="Assets\Scripts\SphereTracing\SphereTracingManager.cs" />
     <Compile Include="Assets\Scripts\Utils\FreeRoamCamera.cs" />
     <None Include="Assets\Scripts\SphereTracing\Shader\ImplicitBasics.cginc" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\Random.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\WorldLogic.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\UniformVariables.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\StructDefinitions.cginc" />
-    <None Include="Assets\Scripts\SphereTracing\Shader\RenderShader.shader" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\AmbientOcclusion.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\SphereTracing.compute" />
     <Reference Include="UnityEditor.StandardEvents">
       <HintPath>D:/Documents/GitHub/SphereTracing/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>

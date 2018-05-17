@@ -157,6 +157,11 @@ MonoBehaviour:
   SphereTracingSteps: 56
   EnableSuperSampling: 0
   LightCount: 2
+  EnableAmbientOcclusion: 0
+  AmbientOcclusionSamples: 9
+  AmbientOcclusionSteps: 14
+  AmbientOcclusionMaxDistance: 10
+  AmbientOcclusionAmplification: 1
   StMaterials:
   - {fileID: 11400000, guid: d4562ad213ac2e745947311169ee0846, type: 2}
   - {fileID: 11400000, guid: 51db7d2e4bd0c8d4e8062480961ee18c, type: 2}

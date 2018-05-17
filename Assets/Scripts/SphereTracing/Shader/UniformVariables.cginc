@@ -4,6 +4,13 @@
 #include "StructDefinitions.cginc"
 
 /*
+ * Constants
+ */
+static const float PI = 3.141592653589793238;
+static const float GOLDENRATIO = 1.6180339887498948;//Golden Ratio = (1 + sqrt(5)) / 2
+static const float GOLDENANGLE = 2.4;               //Golden Angle = PI (3 - sqrt(5)) 
+
+/*
  * Variables set from CPU side, like uniforms
  */
 RWTexture2D<float4> SphereTracingTexture;   //Target Render Texture with Read Write Access
@@ -20,7 +27,11 @@ float4 Time;                                //x: Time in s   y: x/20     z: delt
 int MaterialCount;
 int LightCount;
 int SphereTracingSteps;
-int AmbientOcclusionSamples;
 bool EnableSuperSampling;
+
+bool EnableAmbientOcclusion;
+int AmbientOcclusionSamples;
+int AmbientOcclusionSteps;
+float AmbientOcclusionMaxDistance;
 
 #endif // UNIFORMVARIABLES_INCLUDED
