@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.12731749, g: 0.13414757, b: 0.1210787, a: 1}
+  m_IndirectSpecularColor: {r: 0.1273174, g: 0.13414761, b: 0.12107885, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -151,17 +151,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SphereTracingShader: {fileID: 7200000, guid: 50aef8ce42f6a024b893455bc10a19c6, type: 3}
-  UseCustomResolution: 0
+  UseCustomResolution: 1
   CustomResolution: {x: 1024, y: 768}
   ComputeShaderKernel: 0
-  SphereTracingSteps: 56
+  SphereTracingSteps: 256
   EnableSuperSampling: 0
   LightCount: 2
   EnableAmbientOcclusion: 0
   AmbientOcclusionSamples: 9
   AmbientOcclusionSteps: 14
-  AmbientOcclusionMaxDistance: 10
-  AmbientOcclusionAmplification: 1
+  AmbientOcclusionMaxDistance: 2
+  SpecularOcclusionStrength: 1
+  ConeAngleFactor: 1
   StMaterials:
   - {fileID: 11400000, guid: d4562ad213ac2e745947311169ee0846, type: 2}
   - {fileID: 11400000, guid: 51db7d2e4bd0c8d4e8062480961ee18c, type: 2}
@@ -209,8 +210,8 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 282840810}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -3.75, z: -16.56}
+  m_LocalRotation: {x: -0.17253283, y: 0.78962153, z: -0.25718883, w: -0.52970207}
+  m_LocalPosition: {x: 10.577568, y: -0.046252806, z: 3.9794052}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}

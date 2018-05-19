@@ -38,7 +38,7 @@ namespace SphereTracing
 		[Range(0.01f, 100f)]
 		public float AmbientOcclusionMaxDistance = 1.0f;
 		[Range(0.01f, 3f)]
-		public float AmbientOcclusionAmplification = 1.0f;
+		public float SpecularOcclusionStrength = 1.0f;
 
 		#endregion
 		
@@ -105,7 +105,7 @@ namespace SphereTracing
 			SphereTracingShader.SetInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
 			SphereTracingShader.SetInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
 			SphereTracingShader.SetFloat("AmbientOcclusionMaxDistance", AmbientOcclusionMaxDistance);
-			SphereTracingShader.SetFloat("AmbientOcclusionAmplification", AmbientOcclusionAmplification);
+			SphereTracingShader.SetFloat("SpecularOcclusionStrength", SpecularOcclusionStrength);
 			
 			SphereTracingShader.Dispatch(_computeKernels[ComputeShaderKernel].Id,
 				_computeKernels[ComputeShaderKernel].ThreadGroups.x,

@@ -39,6 +39,14 @@ void GetCoordinateSystem(in float3 normal, out float3 tangent, out float3 bitang
     bitangent = cross( normal, tangent );   
 }
 
+float ApproxConeConeIntersection(float arcLength1, float arcLength2, float angleBetweenCones)
+{
+    float angleDiff = abs(arcLength1 - arcLength2);
+    
+    return smoothstep(0, 1,
+     1.0 - saturate((angleBetweenCones - angleDiff) / (arcLength1 + arcLength2 - angleDiff)));
+}
+
 float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
 {
     float minSphereRadius = 0.4;
@@ -47,7 +55,7 @@ float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
     float minVisibility = 1.0;
     float minDistance = 1000000;
     float traceDistance = 0.1;
-    float minStepSize = 1.0 / (4.0 * AmbientOcclusionSteps);
+    float minStepSize = 0;//1.0 / (4.0 * AmbientOcclusionSteps);
     
     for(int step = 0; step < AmbientOcclusionSteps; step++)
     {
@@ -58,8 +66,13 @@ float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
         minDistance = min(minDistance, distance);
         float sphereRadius = clamp(tanConeAngle * traceDistance, minSphereRadius, maxSphereRadius);
         
-        minVisibility = min(minVisibility, saturate(distance / sphereRadius));
+        float visibility = saturate(distance / sphereRadius);
         
+        // Fade visibility based on distance
+        float distanceFraction = traceDistance / AmbientOcclusionMaxDistance;
+        visibility = max(visibility, saturate(distanceFraction * distanceFraction * 0.6f));
+        
+        minVisibility = min(minVisibility, visibility);
         traceDistance += max(distance, minStepSize);
 
         if (distance < epsilon || traceDistance > AmbientOcclusionMaxDistance) break;
@@ -89,7 +102,7 @@ float3 ComputeBentNormal(in Hit hit, in Ray r)
     for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
     {
         float3 cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
-        float3 cDirWorld = cDir.x * bitangent + cDir.y * hit.Normal + cDir.z * tangent; //TODO: Possible error source
+        float3 cDirWorld = cDir.x * bitangent + cDir.y * tangent + cDir.z * hit.Normal; //TODO: Possible error source
         
         coneRay.Direction = cDirWorld;
         
@@ -103,11 +116,17 @@ float3 ComputeBentNormal(in Hit hit, in Ray r)
     return bentNormal;
 }
 
-float ComputeAO(in Hit hit, in Ray r, out float3 bentNormal)
+void ComputeAO(in Hit hit, in Ray r, out float3 bentNormal, out float diffuseOcclusion, out float specularOcclusion)
 {
     //TODO: Improve ao factor computation
     bentNormal = ComputeBentNormal(hit,r);
-    return length(bentNormal);
+    float bentNormalLength = length(bentNormal);
+    float reflectionConeAngle = max(hit.Material.ReflectiveF, 0.1) * PI;
+    float unoccludedAngle = bentNormalLength * PI * SpecularOcclusionStrength;
+    float angleBetween = acos(dot(bentNormal, reflect(r.Direction, hit.Normal) / max(bentNormalLength, 0.001)));
+    specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);
+    specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
+    diffuseOcclusion = bentNormalLength;
 }
 
 #endif // AMBIENTOCCLUSION_INCLUDED

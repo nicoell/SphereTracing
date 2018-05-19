@@ -91,6 +91,12 @@ void EvaluateMaterial(inout Hit hit, in Ray r, in float3 normal)
 float3 Shading(in Hit hit, in Ray r)
 {
 	float3 color = float3(.0, .0, .0);
+    float3 bentNormal = hit.Normal;
+    float specularOcclusion = 1;
+    float diffuseOcclusion = 1;
+	
+	if (EnableAmbientOcclusion)
+        ComputeAO(hit, r, bentNormal, diffuseOcclusion, specularOcclusion);
 
     for(int i = 0; i < LightCount; i++)
     {
@@ -99,23 +105,15 @@ float3 Shading(in Hit hit, in Ray r)
         if (light.LightType == 0)               // Point Light
         {
             float3 dirToLight = normalize(light.LightData2.xyz - hit.Position);
-            float diffuseIntensity = saturate(dot(hit.Normal, dirToLight));
-            float3 ambient = float3(.1,.1,.1);
-            color += light.LightData.xyz * hit.Material.Color * diffuseIntensity + ambient * hit.Material.Color;
+            float diffuseIntensity = saturate(dot(hit.Normal, dirToLight)) * diffuseOcclusion;
+            color += light.LightData.xyz * hit.Material.Color * diffuseIntensity;
         } else if (light.LightType == 1)        // Directional Light
         {
-            float diffuseIntensity = saturate(dot(hit.Normal, light.LightData2.xyz));
-            float3 ambient = float3(.1,.1,.1);
-            color += light.LightData.xyz * hit.Material.Color * diffuseIntensity + ambient * hit.Material.Color;
+            float diffuseIntensity = saturate(dot(hit.Normal, light.LightData2.xyz)) * diffuseOcclusion;
+            color += light.LightData.xyz * hit.Material.Color * diffuseIntensity;
         }
      }
-    
-    if (EnableAmbientOcclusion)
-    {
-        float3 bentNormal;
-        float occlusion = ComputeAO(hit, r, bentNormal);
-        color *= occlusion;
-	}
+ 
 	return color;
 }
 

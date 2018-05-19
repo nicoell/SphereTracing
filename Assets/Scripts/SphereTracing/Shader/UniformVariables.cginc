@@ -33,5 +33,6 @@ bool EnableAmbientOcclusion;
 int AmbientOcclusionSamples;
 int AmbientOcclusionSteps;
 float AmbientOcclusionMaxDistance;
+float SpecularOcclusionStrength;
 
 #endif // UNIFORMVARIABLES_INCLUDED
