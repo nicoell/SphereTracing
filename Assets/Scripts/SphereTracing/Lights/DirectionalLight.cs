@@ -24,7 +24,7 @@ namespace SphereTracing.Lights {
 		private void OnDrawGizmos()
 		{
 			Gizmos.color = LightColor;
-			Gizmos.DrawRay(transform.position, transform.forward);
+			Gizmos.DrawRay(transform.position, -transform.forward);
 			Gizmos.DrawIcon(transform.position, "stLight_Directional");
 		}
 	}

@@ -195,7 +195,7 @@ namespace SphereTracing
 
 		public void RegisterStLight(StLight stLight)
 		{
-			if (_stLights.All(item => item.GetInstanceID() != stLight.GetInstanceID())) _stLights.Add(stLight);
+			if (_stLights != null && _stLights.All(item => item.GetInstanceID() != stLight.GetInstanceID())) _stLights.Add(stLight);
 		}
 
 		public void CleanStLights() { _stLights.RemoveAll(lights => lights == null || !lights.IsActive); }

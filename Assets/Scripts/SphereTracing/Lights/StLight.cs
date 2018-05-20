@@ -11,7 +11,7 @@ namespace SphereTracing.Lights
 	public abstract class StLight : MonoBehaviour
 	{
 		[HideInInspector]
-		public bool IsActive;
+		public bool IsActive = true;
 		public SphereTracingManager SphereTracingManager;
 		public abstract int LightType { get; }
 
@@ -27,6 +27,13 @@ namespace SphereTracing.Lights
 		{
 			IsActive = false;
 			SphereTracingManager.CleanStLights();
+		}
+		
+		protected void OnEnable()
+		{
+			if (IsActive) return;
+			IsActive = true;
+			SphereTracingManager.RegisterStLight(this);
 		}
 
 		protected void OnDestroy()
