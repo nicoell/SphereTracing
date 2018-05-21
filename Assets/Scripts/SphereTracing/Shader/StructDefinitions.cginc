@@ -11,7 +11,9 @@ struct Ray
 struct StMaterial
 {
 	int MaterialType;
-	float4 Color;
+	float4 DiffuseColor;
+	float4 SpecularColor;
+	float Shininess;
 	float ReflectiveF;
 };
 

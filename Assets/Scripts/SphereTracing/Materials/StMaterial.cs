@@ -12,7 +12,9 @@ namespace SphereTracing.Materials
 	public struct StMaterialData
 	{
 		public int MaterialType;
-		public Color Color;
+		public Color DiffuseColor;
+		public Color SpecularColor;
+		public float Shininess;
 		[Range(0,1)]
 		public float ReflectiveF;
 		
@@ -23,7 +25,7 @@ namespace SphereTracing.Materials
 		/// <returns></returns>
 		public static int GetSize()
 		{
-			return sizeof(int) + 5 * sizeof(float);
+			return sizeof(int) + 10 * sizeof(float);
 		}
 	}
 }

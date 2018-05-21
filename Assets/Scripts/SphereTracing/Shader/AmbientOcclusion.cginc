@@ -11,7 +11,7 @@ float3 SphericalFibonacciMapping(float i, float n, float rand)
 {
     float phi = i * 2.0 * PI * GOLDENRATIO + rand;
     float zi = 1.0 - (2.0*i+1.0)/(n);
-    float theta = sqrt(1.0 - zi*zi);          //Kinda approximation for arccos(zi)
+    float theta = sqrt(1.0 - zi*zi);
     return float3( cos(phi) * theta, sin(phi) * theta, zi);
 }
 
@@ -19,7 +19,7 @@ float3 HemisphericalFibonacciMapping(float i, float n, float rand)
 {
     float phi = i * 2.0 * PI * GOLDENRATIO + rand;
     float zi = 1.0 - (2.0*i+1.0)/(2*n);
-    float theta = sqrt(1.0 - zi*zi);          //Kinda approximation for arccos(zi)
+    float theta = sqrt(1.0 - zi*zi);
     return normalize(float3( cos(phi) * theta, sin(phi) * theta, zi));
 }
 
@@ -49,13 +49,13 @@ float ApproxConeConeIntersection(float arcLength1, float arcLength2, float angle
 
 float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
 {
-    float minSphereRadius = 0.4;
+    float minSphereRadius = 0.04; //TODO: Causes artefacts if not small enough
     float maxSphereRadius = 100.0;
 
     float minVisibility = 1.0;
     float minDistance = 1000000;
     float traceDistance = 0.1;
-    float minStepSize = 0;//1.0 / (4.0 * AmbientOcclusionSteps);
+    float minStepSize = 0;//1.0 / (4.0 * AmbientOcclusionSteps); //TODO: Also causes artefacts
     
     for(int step = 0; step < AmbientOcclusionSteps; step++)
     {
@@ -102,7 +102,7 @@ float3 ComputeBentNormal(in Hit hit, in Ray r)
     for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
     {
         float3 cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
-        float3 cDirWorld = cDir.x * bitangent + cDir.y * tangent + cDir.z * hit.Normal; //TODO: Possible error source
+        float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * hit.Normal; //TODO: Possible error source
         
         coneRay.Direction = cDirWorld;
         
@@ -126,7 +126,7 @@ void ComputeAO(in Hit hit, in Ray r, out float3 bentNormal, out float diffuseOcc
     float angleBetween = acos(dot(bentNormal, reflect(r.Direction, hit.Normal) / max(bentNormalLength, 0.001)));
     specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);
     specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
-    diffuseOcclusion = bentNormalLength;
+    diffuseOcclusion = pow(bentNormalLength, OcclusionExponent);
 }
 
 #endif // AMBIENTOCCLUSION_INCLUDED

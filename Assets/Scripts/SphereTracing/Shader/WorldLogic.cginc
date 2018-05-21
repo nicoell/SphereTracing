@@ -5,6 +5,7 @@
 #include "ImplicitBasics.cginc"
 #include "StructDefinitions.cginc"
 
+float3 Background(in Ray r);
 
 //Definition of Material IDs
 #define MAT_RED 0
@@ -16,16 +17,16 @@
 
 float2 AOTorus(in float3 pos, float mat)
 {
-    
-    float4x4 m = float4x4(1.0,0.0,0.0,0.0,
+	
+	float4x4 m = float4x4(1.0,0.0,0.0,0.0,
 						  0.0,1.0,0.0,8, 
 						  0.0,0.0,1.0,0.0, 
 						  0.0,0.0,0.0,1.0);
-    float3 p = opTx(pos, m);
-    
-    float2 q = float2(length(p.xz) - 30., p.y);
-    
-    return float2(length(q) - 2., mat);
+	float3 p = opTx(pos, m);
+	
+	float2 q = float2(length(p.xz) - 30., p.y);
+	
+	return float2(length(q) - 2., mat);
 }
 
 float2 SphereTest(in float3 pos,float3 translation, float radius, float mat)
@@ -70,7 +71,7 @@ float2 Map(in float3 pos)
 	res = opU(res, SphereTest(pos, float3(8.0,1.0,-8.0), 2.0, MAT_RED));
 	res = opU(res, SphereTest(pos, float3(-8.0,1.0,-8.0), 2.0, MAT_BLUE));
 	res = opU(res, SphereTest(pos, float3(0.0,1.0,8.0), 2.0, MAT_GREEN));
-    res = opU(res, AOTorus(pos, MAT_FLOOR));
+	res = opU(res, AOTorus(pos, MAT_FLOOR));
 	//float displacement = displacement = sin(5.0 * pos.x) * sin(5.0 * pos.y) * sin(5.0 * pos.z) * 0.25;
 	//res += displacement;
 	
@@ -88,31 +89,71 @@ void EvaluateMaterial(inout Hit hit, in Ray r, in float3 normal)
 	}
 }
 
+
 float3 Shading(in Hit hit, in Ray r)
 {
-	float3 color = float3(.0, .0, .0);
-    float3 bentNormal = hit.Normal;
-    float specularOcclusion = 1;
-    float diffuseOcclusion = 1;
+	float3 ambientColor = float3(.1, .1, .1);
+	float3 diffuseColor = float3(.0, .0, .0);
+	float3 specularColor = float3(.0, .0, .0);
+	float3 bentNormal = hit.Normal;
+	float specularOcclusion = 1;
+	float diffuseOcclusion = 1;
 	
-	if (EnableAmbientOcclusion)
-        ComputeAO(hit, r, bentNormal, diffuseOcclusion, specularOcclusion);
+	if (EnableAmbientOcclusion) { 
+		ComputeAO(hit, r, bentNormal, diffuseOcclusion, specularOcclusion);
+		bentNormal = lerp(hit.Normal, bentNormal, BentNormalFactor);
+		Ray aoRay;
+		aoRay.Origin = r.Origin;
+		aoRay.Direction = bentNormal;
+		if (EnableGlobalIllumination) ambientColor = diffuseOcclusion * Background(aoRay);
+	}
 
-    for(int i = 0; i < LightCount; i++)
-    {
-        StLight light = LightBuffer[i];
-        if (light.LightType < 0) break;
-        if (light.LightType == 0)               // Point Light
-        {
-            float3 dirToLight = normalize(light.LightData2.xyz - hit.Position);
-            float diffuseIntensity = saturate(dot(hit.Normal, dirToLight)) * diffuseOcclusion;
-            color += light.LightData.xyz * hit.Material.Color * diffuseIntensity;
-        } else if (light.LightType == 1)        // Directional Light
-        {
-            float diffuseIntensity = saturate(dot(hit.Normal, light.LightData2.xyz)) * diffuseOcclusion;
-            color += light.LightData.xyz * hit.Material.Color * diffuseIntensity;
-        }
-     }
+	for(int i = 0; i < LightCount; i++)
+	{
+	    StLight light = LightBuffer[i];
+		if (light.LightType < 0) break;
+		
+		//Compute BlinnPhong Lightning
+		float3 lightDir;
+		float3 lightColor;
+		float3 lightPower;
+		float attenuation = 1.0;
+
+		if (light.LightType == 0)               // Point Light
+		{
+			lightDir = light.LightData2.xyz - hit.Position;
+			lightPower = light.LightData.w;
+			attenuation = lightPower / length(lightDir);
+			lightDir = normalize(lightDir);
+			lightColor = light.LightData.xyz;
+		} else if (light.LightType == 1)        // Directional Light
+		{
+			lightDir = light.LightData2.xyz;
+			lightColor = light.LightData.xyz;
+			lightPower = light.LightData.w;
+		}
+		
+		float lambertian = max(dot(hit.Normal, lightDir), 0.0);
+		float specular = 0.0;
+		
+		if (lambertian > 0) {
+			float3 halfDir = normalize(lightDir + (-CameraDir));
+			float specularAngle = max(dot(hit.Normal, halfDir), 0.0);
+			specular = pow(specularAngle, hit.Material.Shininess);
+		} 
+		
+		diffuseColor += hit.Material.DiffuseColor * lambertian * lightColor * attenuation;
+		specularColor += hit.Material.SpecularColor * specular * lightColor * attenuation;
+	}
+	
+	diffuseColor *= diffuseOcclusion;
+	specularColor *= specularOcclusion;
+	
+	//Add up color
+	float3 color = ambientColor + diffuseColor + specularColor;
+	
+	//Gamma correct colors
+	color = pow( max(color,0.0), GammaCorrection);
  
 	return color;
 }
@@ -124,9 +165,9 @@ float3 Shading(in Hit hit, in Ray r)
  */
 float3 totalMie(in float T)
 {
-    float3 MieConst = float3(1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );
-    float c = (0.2*T) * 10E-18;
-    return 0.434 * c * MieConst;
+	float3 MieConst = float3(1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );
+	float c = (0.2*T) * 10E-18;
+	return 0.434 * c * MieConst;
 }
 
 float sunIntensity(in float zenithAngleCos )

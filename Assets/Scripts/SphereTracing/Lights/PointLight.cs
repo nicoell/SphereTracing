@@ -9,12 +9,14 @@ namespace SphereTracing.Lights {
 		[Header("Point Light Settings")]
 		public Color LightColor = Color.white;
 
+		public float LightPower = 40f;
+
 		public override StLightData GetStLightData()
 		{
 			var data = new StLightData
 			{
 				LightType = IsActive ? LIGHT_TYPE : -1,
-				LightData = LightColor,
+				LightData = new Vector4(LightColor.r, LightColor.g, LightColor.b, LightPower),
 				LightData2 = transform.position
 			};
 

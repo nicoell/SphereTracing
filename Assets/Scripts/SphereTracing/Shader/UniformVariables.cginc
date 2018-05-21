@@ -20,6 +20,7 @@ StructuredBuffer<StMaterial> MaterialBuffer;
 float4 CameraFrustumEdgeVectors[4];         //Array of the cameras frustum edge vectors, clockwise beginning in the topleft.
 float4x4 CameraInverseViewMatrix;       
 float3 CameraPos;   
+float3 CameraDir;   
 float2 Resolution;                          //Width and Height of RenderTexture
 float2 ClippingPlanes;                      //x: Near        y: Far
 float4 Time;                                //x: Time in s   y: x/20     z: deltaTime      w: 1/z
@@ -34,5 +35,10 @@ int AmbientOcclusionSamples;
 int AmbientOcclusionSteps;
 float AmbientOcclusionMaxDistance;
 float SpecularOcclusionStrength;
+float OcclusionExponent;
+float BentNormalFactor;
+bool EnableGlobalIllumination;
+
+float3 GammaCorrection;
 
 #endif // UNIFORMVARIABLES_INCLUDED

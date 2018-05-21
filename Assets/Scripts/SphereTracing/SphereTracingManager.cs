@@ -39,6 +39,14 @@ namespace SphereTracing
 		public float AmbientOcclusionMaxDistance = 1.0f;
 		[Range(0.01f, 3f)]
 		public float SpecularOcclusionStrength = 1.0f;
+		[Range(0.01f, 3f)]
+		public float OcclusionExponent = 1.0f;
+		[Range(0f, 1f)]
+		public float BentNormalFactor = 1.0f;
+
+		public bool EnableGlobalIllumination;
+
+		public Vector3 GammaCorrection = Vector3.one;
 
 		#endregion
 		
@@ -95,6 +103,7 @@ namespace SphereTracing
 			SphereTracingShader.SetVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 			SphereTracingShader.SetMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
 			SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
+			SphereTracingShader.SetVector("CameraDir", Camera.main.transform.forward);
 			SphereTracingShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
 			SphereTracingShader.SetVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
 
@@ -106,6 +115,11 @@ namespace SphereTracing
 			SphereTracingShader.SetInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
 			SphereTracingShader.SetFloat("AmbientOcclusionMaxDistance", AmbientOcclusionMaxDistance);
 			SphereTracingShader.SetFloat("SpecularOcclusionStrength", SpecularOcclusionStrength);
+			SphereTracingShader.SetFloat("OcclusionExponent", OcclusionExponent);
+			SphereTracingShader.SetFloat("BentNormalFactor", BentNormalFactor);
+			SphereTracingShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
+			
+			SphereTracingShader.SetVector("GammaCorrection", GammaCorrection);
 			
 			SphereTracingShader.Dispatch(_computeKernels[ComputeShaderKernel].Id,
 				_computeKernels[ComputeShaderKernel].ThreadGroups.x,
