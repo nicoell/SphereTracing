@@ -1,11 +1,16 @@
 #ifndef AMBIENTOCCLUSION_INCLUDED
 #define AMBIENTOCCLUSION_INCLUDED
 
-#include "UniformVariables.cginc"       //Contains the resources set from CPU.
-#include "ImplicitBasics.cginc"
-#include "StructDefinitions.cginc"
+#include "Defines/SharedConstants.cginc"
+#include "Defines/Structs.cginc"
+#include "Inputs/SharedInputs.cginc"
+#include "Inputs/DeferredRenderingInputs.cginc"
+#include "Inputs/SphereTracingInputs.cginc"
+#include "Utils/ImplicitBasics.cginc" 
 #include "WorldLogic.cginc"
-#include "Random.cginc"
+#include "DeferredLogic.cginc"
+#include "WorldLogic.cginc"
+#include "Utils/Random.cginc"
 
 float3 SphericalFibonacciMapping(float i, float n, float rand)
 {
@@ -86,11 +91,11 @@ float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
     return minVisibility;
 }
 
-float3 ComputeBentNormal(in Hit hit, in Ray r)
+float3 ComputeBentNormal(in Hit hit, in Ray r, in float3 normal)
 {
     float3 tangent;
     float3 bitangent;
-    GetCoordinateSystem(hit.Normal, tangent, bitangent);
+    GetCoordinateSystem(normal, tangent, bitangent);
     
     float3 bentNormal = 0;
     Ray coneRay;
@@ -102,7 +107,7 @@ float3 ComputeBentNormal(in Hit hit, in Ray r)
     for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
     {
         float3 cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
-        float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * hit.Normal; //TODO: Possible error source
+        float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * normal; //TODO: Possible error source
         
         coneRay.Direction = cDirWorld;
         
@@ -116,17 +121,19 @@ float3 ComputeBentNormal(in Hit hit, in Ray r)
     return bentNormal;
 }
 
-void ComputeAO(in Hit hit, in Ray r, out float3 bentNormal, out float diffuseOcclusion, out float specularOcclusion)
+void ComputeAO(in Hit hit, in Ray r, in float3 normal, out float3 bentNormal, out float specularOcclusion)
 {
     //TODO: Improve ao factor computation
-    bentNormal = ComputeBentNormal(hit,r);
+    bentNormal = ComputeBentNormal(hit,r,normal);
     float bentNormalLength = length(bentNormal);
-    float reflectionConeAngle = max(hit.Material.ReflectiveF, 0.1) * PI;
+    //TODO: use correct material data
+    float reflectitveness = 0.5f;
+    float reflectionConeAngle = max(reflectitveness, 0.1) * PI;
     float unoccludedAngle = bentNormalLength * PI * SpecularOcclusionStrength;
-    float angleBetween = acos(dot(bentNormal, reflect(r.Direction, hit.Normal) / max(bentNormalLength, 0.001)));
+    float angleBetween = acos(dot(bentNormal, reflect(r.Direction, normal) / max(bentNormalLength, 0.001)));
     specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);
     specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
-    diffuseOcclusion = pow(bentNormalLength, OcclusionExponent);
+    //diffuseOcclusion = pow(bentNormalLength, OcclusionExponent);
 }
 
 #endif // AMBIENTOCCLUSION_INCLUDED

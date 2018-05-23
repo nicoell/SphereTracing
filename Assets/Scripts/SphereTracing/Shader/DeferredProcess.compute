@@ -1,0 +1,31 @@
+#pragma kernel CSMainHigh
+#pragma kernel CSMainMid
+#pragma kernel CSMainLow
+
+#define CSMainHighThreadsX 32
+#define CSMainHighThreadsY 20
+#define CSMainHighThreadsZ 1
+
+#define CSMainMidThreadsX 16
+#define CSMainMidThreadsY 16
+#define CSMainMidThreadsZ 1
+
+#define CSMainLowThreadsX 8
+#define CSMainLowThreadsY 8
+#define CSMainLowThreadsZ 1
+
+#include "UpscaleUniformVariables.cginc"
+
+void Main(uint3 id)
+{
+
+}
+
+[numthreads(CSMainHighThreadsX, CSMainHighThreadsY, CSMainHighThreadsZ)]
+void CSMainHigh (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+[numthreads(CSMainMidThreadsX, CSMainMidThreadsY, CSMainMidThreadsZ)]
+void CSMainMid (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+[numthreads(CSMainLowThreadsX, CSMainLowThreadsY, CSMainLowThreadsZ)]
+void CSMainLow (uint3 id : SV_DispatchThreadID) {  Main(id); }

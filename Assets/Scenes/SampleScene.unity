@@ -151,10 +151,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SphereTracingShader: {fileID: 7200000, guid: 50aef8ce42f6a024b893455bc10a19c6, type: 3}
+  UpscaleShader: {fileID: 7200000, guid: 71ad783c4a8247ff971876263ef03bbe, type: 3}
+  DeferredShader: {fileID: 7200000, guid: ee9c665b7ba842b1ad6ca91d1cab0fd5, type: 3}
   UseCustomResolution: 1
   CustomResolution: {x: 1024, y: 768}
   ComputeShaderKernel: 0
-  SphereTracingSteps: 256
+  SphereTracingSteps: 1024
+  KBufferSlices: 1
+  RadiusPixel: 0.02
+  SurfaceDataDrt:
+    InternalResolutionFactor: 1
+  AmbientOcclusionDrt:
+    InternalResolutionFactor: 1
+  DepthDrt:
+    InternalResolutionFactor: 1
   EnableSuperSampling: 0
   LightCount: 2
   EnableAmbientOcclusion: 1

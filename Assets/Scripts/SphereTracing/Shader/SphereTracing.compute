@@ -1,6 +1,6 @@
-﻿#pragma kernel CSMainHigh
-#pragma kernel CSMainMid
-#pragma kernel CSMainLow
+﻿#pragma kernel CSMainHigh   DEFERRED_CREATE
+#pragma kernel CSMainMid    DEFERRED_CREATE
+#pragma kernel CSMainLow    DEFERRED_CREATE
 
 #define CSMainHighThreadsX 32
 #define CSMainHighThreadsY 20
@@ -14,11 +14,14 @@
 #define CSMainLowThreadsY 8
 #define CSMainLowThreadsZ 1
 
-#include "UniformVariables.cginc"       //Contains the resources set from CPU.
-#include "ImplicitBasics.cginc"         //Contains the basics like primitives or operations.
-#include "StructDefinitions.cginc"      //Contains definitons of structs.     
-#include "WorldLogic.cginc"             //Contains the map of the world and related stuff unique to the world.
-
+#include "Defines/SharedConstants.cginc"
+#include "Defines/Structs.cginc"
+#include "Inputs/SharedInputs.cginc"
+#include "Inputs/DeferredRenderingInputs.cginc"
+#include "Inputs/SphereTracingInputs.cginc"
+#include "Utils/ImplicitBasics.cginc" 
+#include "WorldLogic.cginc"
+#include "DeferredLogic.cginc"
 
 float3 CalculateNormal(in float3 pos)
 {
@@ -40,74 +43,125 @@ float3 CalculateNormal(in float3 pos)
  *      x: Total trace distance travelled along Ray (t * rayDir)
  *      y: Material ID of hit object (-1 if nothing hit)
  */
-void RayMarch(in Ray r, inout Hit hit)
+void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
 {
 	//TODO: Don't use clippingplane as starting trace distance for reflections 
-	hit.TraceDistance = ClippingPlanes.x; //Start tracing at Near Plane
-	hit.MaterialId = -1; //No material is represented by material <= 0
-	hit.Normal = (float3) 0;
-	hit.Material = (StMaterial) 0;
-	hit.DistanceToWorld = ClippingPlanes.y;
-
-	//Trace along ray with sphere tracing algorithm. 
-	for(int i = 0; i < SphereTracingSteps; i++)
+	surfaceHit.TraceDistance = ClippingPlanes.x;    //Start tracing at Near Plane
+	surfaceHit.DistanceToWorld = ClippingPlanes.y;  
+	surfaceHit.Alpha = 1;
+	surfaceHit.MaterialId = -1; //No material is represented by material <= 0
+	
+	representHit.Position = float3(0,0,0);
+    representHit.TraceDistance = ClippingPlanes.x; //Start tracing at Near Plane
+	representHit.DistanceToWorld = 1000000;
+	representHit.Alpha = 0;
+	representHit.MaterialId = -1; //No material is represented by material <= 0
+    
+    //const float radiusP = 0.01; //radius of Pixel
+    bool representFound = false;
+    float epsilon = 0.0015;
+    float t = ClippingPlanes.x;
+    
+    //float3 pointOnRay = r.Origin + t * r.Direction;
+    float2 currentMap = Map(r.Origin + t * r.Direction); //start with negative distance and no material
+    int i = 0;
+    for(; i < SphereTracingSteps; i++)
 	{
-		float epsilon = 0.00015 * hit.TraceDistance;
-		float3 pointOnRay = r.Origin + hit.TraceDistance * r.Direction;
-		float2 map = Map(pointOnRay);
-		
-		//If we hit something or exceed the maximum trace distance we stop immediately.
-		if (map.x < epsilon || hit.TraceDistance > ClippingPlanes.y){
-		    hit.TraceDistance += min(map.x, 0); //step back to previous hit
-		    break;
-		}
-		
-		hit.TraceDistance += map.x;
-		hit.MaterialId = map.y;
-		hit.DistanceToWorld = map.x;
+	    //Test if we hit the surface
+	    if (currentMap.x <= epsilon) {
+	        //We hit the surface.
+	        surfaceHit.DistanceToWorld = currentMap.x;
+            surfaceHit.TraceDistance = t;
+            surfaceHit.MaterialId = currentMap.y;
+            surfaceHit.Position = r.Origin + surfaceHit.TraceDistance * r.Direction;
+            break;
+	    }
+	    
+	    //We didn't hit the surface yet so sample next sphere
+	    float2 nextMap = Map(r.Origin + (t + currentMap.x) * r.Direction);
+
+	    //Test if we are inside pixelRadius
+	    if (currentMap.x < RadiusPixel) {
+	        //We are inside the pixelRadius but we didn't hit a surface
+	        //Test if the next sphere is bigger than the current one
+	        if (nextMap.x > currentMap.x){
+	            //Next sphere is bigger, meaning we move away from a surface
+	            //Test if we have a represent by making sure it's the first time a sphere gets bigger next step
+	            if (representFound == false){
+	                //We found a represent
+	                representFound = true;
+	                //But we only want to save it, if it's the smallest represent in sphere radius
+	                if (currentMap.x < representHit.DistanceToWorld){
+	                    //We found a new smallest represent.
+	                    representHit.DistanceToWorld = currentMap.x;
+	                    representHit.TraceDistance = t;
+	                    representHit.MaterialId = currentMap.y;
+	                }
+	            }
+	        } else {
+	            //Next sphere is not bigger, meaning we are getting closer to a surface
+	            representFound = false;
+	        }
+	    }
+	    t += currentMap.x;
+	    currentMap = nextMap;
+	    
+	    //Test if we exceeded far clippingplane
+	    if (t > ClippingPlanes.y){
+	        surfaceHit.MaterialId = -1;
+	        break;
+	    }
 	}
 	
-    hit.Position = r.Origin + hit.TraceDistance * r.Direction;
-	if (hit.TraceDistance > ClippingPlanes.y)  hit.MaterialId = -1.0;
+	//Test if we found a represent by checking its MaterialId
+	if (representHit.MaterialId >= 0) {
+	    //Calculate how much the represent covers the pixel
+	    representHit.Alpha = 1.0 - representHit.DistanceToWorld / RadiusPixel;
+	    representHit.Position = r.Origin + representHit.TraceDistance * r.Direction;
+	}
+    
+    //Test if we reached max SphereTracingSteps
+    if (i == SphereTracingSteps) {
+        //Use latest hit instead of background
+        surfaceHit.TraceDistance = t;
+		surfaceHit.MaterialId = currentMap.y;
+		surfaceHit.DistanceToWorld = currentMap.x;
+		surfaceHit.Position = r.Origin + surfaceHit.TraceDistance * r.Direction;
+    }
 }
 
-float3 EvaluateColor(in Ray r, in Hit hit, int maxSteps)
+void EvaluateHit(in uint2 xy, in Ray r, in Hit hit, inout SurfaceData sd, inout AmbientOcclusion ao, inout float depth)
 {
-	//Variables for recursion
-	float3 color = float3(0.,0.,0.);
-	float absReflectiveF = 1.0;
-	float3 normal;
-	int step = 0;
-	
-	do  //"Recursion"-Loop
-	{   
-		//if an object is hit
-		if (sign(hit.MaterialId) >= 0)
-		{
-			normal = CalculateNormal(hit.Position);
-			EvaluateMaterial(hit, r, normal);
-
-			//Calculate new Color and new Reflective Factor
-			color = lerp(color, Shading(hit, r), absReflectiveF);
-			absReflectiveF *= hit.Material.ReflectiveF;
-		}
-		//if the background is hit
-		else
-		{
-			color = lerp(color, Background(r), absReflectiveF);
-			break;
-		}
-		
-		step++;
-		if (step >= maxSteps || sign(hit.Material.ReflectiveF * absReflectiveF) < 1) break;
-		
-		r.Direction = normalize(r.Direction - 2 * normalize( dot(r.Direction, normal) * normal)) ;
-		r.Origin = hit.Position;
-		RayMarch(r, hit); 
-
-	} while (step < maxSteps);
-	
-	return color;
+    sd.Position = hit.Position;
+    sd.MaterialId = hit.MaterialId;
+    sd.Alpha = hit.Alpha;
+    depth = hit.TraceDistance;
+    if (sign(hit.MaterialId) >= 0)
+    {
+        sd.Normal = CalculateNormal(hit.Position);
+        if (ConsiderAmbientOcclusion(xy))
+        { 
+            if (EnableAmbientOcclusion)
+            {
+                ComputeAO(hit, r, sd.Normal, ao.BentNormal, ao.SpecularOcclusion);
+                ao.BentNormal = lerp(sd.Normal, ao.BentNormal, BentNormalFactor);
+            } else 
+            {
+                ao.BentNormal = (float3) 0;
+                ao.SpecularOcclusion = 0;
+            }
+        }
+    }
+    //if the background is hit
+    else
+    {
+        sd.Normal = r.Direction;
+        if (ConsiderAmbientOcclusion(xy))
+        {
+            ao.BentNormal = (float3) 0;
+            ao.SpecularOcclusion = 0;
+        }
+    }
 }
 
 void Main(uint3 id)
@@ -115,48 +169,29 @@ void Main(uint3 id)
 	//UVs on Screen
 	float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
 
-	//Set Sampling Variables
-	int sampleSize = EnableSuperSampling ? 4 : 1;
-	
-	//Construct Jitter Matrix for MultiSampling
-	float eps = 2.;
-	float epsX = Resolution.x*eps;
-	float epsY = Resolution.y*eps;
-	float4x2 jitterMatrix = float4x2(-1.0/epsX,  2.0/epsY,
-									  2.0/epsX,  1.0/epsY,
-									 -2.0/epsX, -1.0/epsY,
-									  1.0/epsX, -2.0/epsY);
-
-	//Variable for final color 
-	float3 colorSum = float3(0.0, 0.0, 0.0);
+	//Struct containing everything needed for deferred rendering.
+	StUnion stUnion;
 
 	//Create Ray struct
 	Ray r;
 	r.Origin = CameraPos;
+    float4 rayDir = (lerp(
+        lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], uv.x),
+        lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], uv.x),
+        uv.y));
+    r.Direction = (mul(CameraInverseViewMatrix, rayDir).xyz);
+    r.uv = uv;
 
-	//Sampling-Loop            
-	for(int sample = 0; sample < sampleSize; sample++)
-	{
-		//Construct Ray Direction
-		float jx = EnableSuperSampling ? uv.x + jitterMatrix[sample][0]: uv.x;
-		float jy = EnableSuperSampling ? uv.y + jitterMatrix[sample][1]: uv.y;
-        r.uv = float2(jx, jy);
-        
-		float4 rayDir = (lerp(
-			lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], jx),
-			lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], jx),
-			jy));
-		r.Direction = (mul(CameraInverseViewMatrix, rayDir).xyz);
+    Hit surfaceHit;
+    Hit representHit;
+    RayMarch(r, surfaceHit, representHit);
+    EvaluateHit(id.xy, r, surfaceHit, stUnion.Surface, stUnion.SurfaceAo, stUnion.SurfaceDepth);
+    EvaluateHit(id.xy, r, representHit, stUnion.Represent, stUnion.RepresentAo, stUnion.RepresentDepth);
 
-		Hit hit;
-		RayMarch(r, hit);
-		float3 color = EvaluateColor(r , hit , 10);
-
-		colorSum += color; //Sum up Color
-	}
- 
-	colorSum /= sampleSize; //Calculate mean Color
-	SphereTracingTexture[uint2(id.xy)] = float4(colorSum, 1.0); //Write Color to Texture
+    EncodeSurfaceData(SurfaceDataTarget, id.xy, 0, stUnion.Surface, stUnion.Represent);
+    if (ConsiderAmbientOcclusion(id.xy))
+        EncodeAmbientOcclusion(AmbientOcclusionTarget, id.xy, 0, stUnion.SurfaceAo, stUnion.RepresentAo);
+    EncodeDepth(DepthTarget, id.xy, 0, stUnion.SurfaceDepth, stUnion.RepresentDepth);
 }
 
 

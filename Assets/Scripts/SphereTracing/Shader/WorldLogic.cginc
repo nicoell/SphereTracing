@@ -1,9 +1,14 @@
 #ifndef WORLDLOGIC_INCLUDED
 #define WORLDLOGIC_INCLUDED
 
-#include "UniformVariables.cginc"       //Contains the resources set from CPU.
-#include "ImplicitBasics.cginc"
-#include "StructDefinitions.cginc"
+#include "Defines/SharedConstants.cginc"
+#include "Defines/Structs.cginc"
+#include "Inputs/SharedInputs.cginc"
+#include "Inputs/DeferredRenderingInputs.cginc"
+#include "Inputs/SphereTracingInputs.cginc"
+#include "Utils/ImplicitBasics.cginc" 
+#include "WorldLogic.cginc"
+#include "DeferredLogic.cginc"
 
 float3 Background(in Ray r);
 
@@ -79,7 +84,7 @@ float2 Map(in float3 pos)
 }
 
 #include "AmbientOcclusion.cginc"
-
+/*
 void EvaluateMaterial(inout Hit hit, in Ray r, in float3 normal)
 {
 	hit.Material = MaterialBuffer[hit.MaterialId];
@@ -89,73 +94,10 @@ void EvaluateMaterial(inout Hit hit, in Ray r, in float3 normal)
 	}
 }
 
-
+*/
 float3 Shading(in Hit hit, in Ray r)
 {
-	float3 ambientColor = float3(.1, .1, .1);
-	float3 diffuseColor = float3(.0, .0, .0);
-	float3 specularColor = float3(.0, .0, .0);
-	float3 bentNormal = hit.Normal;
-	float specularOcclusion = 1;
-	float diffuseOcclusion = 1;
-	
-	if (EnableAmbientOcclusion) { 
-		ComputeAO(hit, r, bentNormal, diffuseOcclusion, specularOcclusion);
-		bentNormal = lerp(hit.Normal, bentNormal, BentNormalFactor);
-		Ray aoRay;
-		aoRay.Origin = r.Origin;
-		aoRay.Direction = bentNormal;
-		if (EnableGlobalIllumination) ambientColor = diffuseOcclusion * Background(aoRay);
-	}
-
-	for(int i = 0; i < LightCount; i++)
-	{
-	    StLight light = LightBuffer[i];
-		if (light.LightType < 0) break;
-		
-		//Compute BlinnPhong Lightning
-		float3 lightDir;
-		float3 lightColor;
-		float3 lightPower;
-		float attenuation = 1.0;
-
-		if (light.LightType == 0)               // Point Light
-		{
-			lightDir = light.LightData2.xyz - hit.Position;
-			lightPower = light.LightData.w;
-			attenuation = lightPower / length(lightDir);
-			lightDir = normalize(lightDir);
-			lightColor = light.LightData.xyz;
-		} else if (light.LightType == 1)        // Directional Light
-		{
-			lightDir = light.LightData2.xyz;
-			lightColor = light.LightData.xyz;
-			lightPower = light.LightData.w;
-		}
-		
-		float lambertian = max(dot(hit.Normal, lightDir), 0.0);
-		float specular = 0.0;
-		
-		if (lambertian > 0) {
-			float3 halfDir = normalize(lightDir + (-CameraDir));
-			float specularAngle = max(dot(hit.Normal, halfDir), 0.0);
-			specular = pow(specularAngle, hit.Material.Shininess);
-		} 
-		
-		diffuseColor += hit.Material.DiffuseColor * lambertian * lightColor * attenuation;
-		specularColor += hit.Material.SpecularColor * specular * lightColor * attenuation;
-	}
-	
-	diffuseColor *= diffuseOcclusion;
-	specularColor *= specularOcclusion;
-	
-	//Add up color
-	float3 color = ambientColor + diffuseColor + specularColor;
-	
-	//Gamma correct colors
-	color = pow( max(color,0.0), GammaCorrection);
- 
-	return color;
+	return float3(0., 0., 0.);
 }
 
 /*
