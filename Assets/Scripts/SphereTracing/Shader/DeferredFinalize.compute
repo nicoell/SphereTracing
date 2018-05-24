@@ -26,6 +26,10 @@ float3 Background(in Ray r);
 float3 Shading(SurfaceData surface, AmbientOcclusion ao, float depth, bool enableAo)
 {
     float3 color = float3(.0, .0, .0);
+    
+    //Skip shading if alpha is too low
+    if (surface.Alpha <= 0.001) return color;
+    
     float3 ambientColor = float3(.1, .1, .1);
 	float3 diffuseColor = float3(.0, .0, .0);
 	float3 specularColor = float3(.0, .0, .0);
