@@ -98,7 +98,7 @@ float3 Shading(SurfaceData surface, AmbientOcclusion ao, float depth, bool enabl
 	}
 	//Gamma correct colors
  
-	return float3(surface.Alpha * color);
+	return float3(color);
 }
 
 void Main(uint3 id)
@@ -110,8 +110,8 @@ void Main(uint3 id)
     DecodeAmbientOcclusion(AmbientOcclusionDeferred, id.xy, 0, stUnion.SurfaceAo, stUnion.RepresentAo);
     DecodeDepth(DepthDeferred, id.xy, 0, stUnion.SurfaceDepth, stUnion.RepresentDepth);
     
-    float3 surfaceColor = Shading(stUnion.Surface, stUnion.SurfaceAo, stUnion.SurfaceDepth, EnableAmbientOcclusion);
-    float3 representColor = Shading(stUnion.Represent, stUnion.RepresentAo, stUnion.RepresentDepth, EnableAmbientOcclusion);
+    float3 surfaceColor = (1 - stUnion.Represent.Alpha) * Shading(stUnion.Surface, stUnion.SurfaceAo, stUnion.SurfaceDepth, EnableAmbientOcclusion);
+    float3 representColor = stUnion.Represent.Alpha * Shading(stUnion.Represent, stUnion.RepresentAo, stUnion.RepresentDepth, EnableAmbientOcclusion);
     
     float3 outputColor = surfaceColor + representColor;
     outputColor = pow( max(outputColor,0.0), GammaCorrection);

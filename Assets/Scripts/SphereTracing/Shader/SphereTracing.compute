@@ -59,14 +59,14 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
     
     //const float radiusP = 0.01; //radius of Pixel
     bool representFound = false;
-    float epsilon = 0.0015;
     float t = ClippingPlanes.x;
     
     //float3 pointOnRay = r.Origin + t * r.Direction;
     float2 currentMap = Map(r.Origin + t * r.Direction); //start with negative distance and no material
     int i = 0;
     for(; i < SphereTracingSteps; i++)
-	{
+	{   
+	    float epsilon = 0.0015 * t;
 	    //Test if we hit the surface
 	    if (currentMap.x <= epsilon) {
 	        //We hit the surface.
@@ -91,7 +91,8 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
 	                //We found a represent
 	                representFound = true;
 	                //But we only want to save it, if it's the smallest represent in sphere radius
-	                if (currentMap.x < representHit.DistanceToWorld){
+	                //and if we either did not found a represent yet or if we are still on same Material //this is Hacky and not garantued to produce nice results
+	                if (currentMap.x < representHit.DistanceToWorld && (representHit.MaterialId == -1 || representHit.MaterialId == currentMap.y)){
 	                    //We found a new smallest represent.
 	                    representHit.DistanceToWorld = currentMap.x;
 	                    representHit.TraceDistance = t;
