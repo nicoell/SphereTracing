@@ -162,7 +162,7 @@ MonoBehaviour:
   SurfaceDataDrt:
     InternalResolutionFactor: 1
   AmbientOcclusionDrt:
-    InternalResolutionFactor: 1
+    InternalResolutionFactor: 0.5
   DepthDrt:
     InternalResolutionFactor: 1
   EnableSuperSampling: 0

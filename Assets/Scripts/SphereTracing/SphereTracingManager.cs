@@ -95,17 +95,19 @@ namespace SphereTracing
 
 			//Set SharedInputs as global
 			SphereTracingShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
-			Shader.SetGlobalFloatArray("Resolution", new float[] {_targetResolution.width, _targetResolution.height});
+			DeferredShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
+			UpscaleShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
+			//Shader.SetGlobalFloatArray("Resolution", new float[] {_targetResolution.width, _targetResolution.height});
 
-			_sphereTracingComputeKernels = InitComputeKernels(SphereTracingShader, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
-			_upscaleComputeKernels = InitComputeKernels(UpscaleShader, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
-			_deferredComputeKernels = InitComputeKernels(DeferredShader, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
 			InitDeferredRenderTargets();
+			_sphereTracingComputeKernels = InitComputeKernels(SphereTracingShader, _targetResolution, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
+			_upscaleComputeKernels = InitComputeKernels(UpscaleShader, AmbientOcclusionDrt.IsDownScaled ? AmbientOcclusionDrt.ScaledResolution : _targetResolution, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
+			_deferredComputeKernels = InitComputeKernels(DeferredShader, _targetResolution, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
 			InitLights();
 			InitMaterials();
 		}
 
-		private ComputeKernel[] InitComputeKernels(ComputeShader computeShader, string[] kernelNames)
+		private ComputeKernel[] InitComputeKernels(ComputeShader computeShader, Resolution res, string[] kernelNames)
 		{
 			var ret = new ComputeKernel[3];
 			ret[0].Name = "CSMainHigh";
@@ -119,7 +121,7 @@ namespace SphereTracing
 				computeShader.GetKernelThreadGroupSizes(ret[i].Id, out threadGroupX,
 					out threadGroupY, out threadGroupZ);
 				ret[i].ThreadGroupSize = new Vector3Int((int) threadGroupX, (int) threadGroupY, (int) threadGroupZ);
-				ret[i].CalculateThreadGroups(_targetResolution.width, _targetResolution.height, 1);
+				ret[i].CalculateThreadGroups(res.width, res.height, 1);
 			}
 
 			return ret;
@@ -162,26 +164,28 @@ namespace SphereTracing
 			Shader.SetGlobalVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
 			Shader.SetGlobalInt("KBufferSlices", KBufferSlices);
 			
+			SphereTracingShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
+			UpscaleShader.SetBool("EnableSuperSampling", EnableSuperSampling);
+			DeferredShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
+			DeferredShader.SetBool("EnableSuperSampling", EnableSuperSampling);
+			DeferredShader.SetVector("CameraDir", Camera.main.transform.forward);
+			DeferredShader.SetFloat("OcclusionExponent", OcclusionExponent);
+			DeferredShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
+			DeferredShader.SetVector("GammaCorrection", GammaCorrection);
+			
 			SphereTracingShader.SetVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 			SphereTracingShader.SetMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
 			SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
-			SphereTracingShader.SetVector("CameraDir", Camera.main.transform.forward);
 			SphereTracingShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
-
 			SphereTracingShader.SetInt("SphereTracingSteps", SphereTracingSteps);
 			SphereTracingShader.SetBool("EnableSuperSampling", EnableSuperSampling);
 			SphereTracingShader.SetFloat("RadiusPixel", RadiusPixel);
-
-			SphereTracingShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
 			SphereTracingShader.SetInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
 			SphereTracingShader.SetInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
 			SphereTracingShader.SetFloat("AmbientOcclusionMaxDistance", AmbientOcclusionMaxDistance);
 			SphereTracingShader.SetFloat("SpecularOcclusionStrength", SpecularOcclusionStrength);
-			SphereTracingShader.SetFloat("OcclusionExponent", OcclusionExponent);
 			SphereTracingShader.SetFloat("BentNormalFactor", BentNormalFactor);
-			SphereTracingShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
 			
-			SphereTracingShader.SetVector("GammaCorrection", GammaCorrection);
 			
 			//UpdateDeferredRenderTargets();
 			//Do SphereTracing and render into deferred render textures
@@ -189,19 +193,22 @@ namespace SphereTracing
 				_sphereTracingComputeKernels[ComputeShaderKernel].ThreadGroups.x,
 				_sphereTracingComputeKernels[ComputeShaderKernel].ThreadGroups.y,
 				_sphereTracingComputeKernels[ComputeShaderKernel].ThreadGroups.z);
-			/*
+			
 			//Upscaling of lowres render textures
-			DeferredShader.Dispatch(_upscaleComputeKernels[ComputeShaderKernel].Id,
-				_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.x,
-				_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.y,
-				_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.z);
-			*/
+			if (AmbientOcclusionDrt.IsDownScaled)
+			{
+				UpscaleShader.Dispatch(_upscaleComputeKernels[ComputeShaderKernel].Id,
+					_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.x,
+					_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.y,
+					_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.z);
+			}
+
 			//UpdateDeferredRenderTargets();
 			//Lightning pass
 			DeferredShader.Dispatch(_deferredComputeKernels[ComputeShaderKernel].Id,
-				_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.x,
-				_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.y,
-				_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.z);
+				_deferredComputeKernels[ComputeShaderKernel].ThreadGroups.x,
+				_deferredComputeKernels[ComputeShaderKernel].ThreadGroups.y,
+				_deferredComputeKernels[ComputeShaderKernel].ThreadGroups.z);
 
 		}
 
@@ -282,7 +289,7 @@ namespace SphereTracing
 			_stLightBuffer.SetData(_stLightData);
 			if (_stLights == null) _stLights = new List<StLight>();
 
-			SphereTracingShader.SetInt("LightCount", LightCount);
+			DeferredShader.SetInt("LightCount", LightCount);
 		}
 
 		public void RegisterStLight(StLight stLight)
@@ -326,14 +333,14 @@ namespace SphereTracing
 			_stMaterialBuffer = new ComputeBuffer(StMaterials.Length, StMaterialData.GetSize(), ComputeBufferType.Default);
 			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
 
-			SphereTracingShader.SetInt("MaterialCount", StMaterials.Length);
+			//DeferredShader.SetInt("MaterialCount", StMaterials.Length);
 		}
 		
 		private void UpdateStMaterials()
 		{
 			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
 
-			SphereTracingShader.SetBuffer(_sphereTracingComputeKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
+			DeferredShader.SetBuffer(_sphereTracingComputeKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
 		}
 		
 		#endregion

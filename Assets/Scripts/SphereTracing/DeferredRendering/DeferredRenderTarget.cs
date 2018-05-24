@@ -19,6 +19,16 @@ namespace SphereTracing.DeferredRendering
 		private Resolution _scaledResolution;
 		private int _step;
 
+		public bool IsDownScaled
+		{
+			get { return _isDownScaled; }
+		}
+
+		public Resolution ScaledResolution
+		{
+			get { return _scaledResolution; }
+		}
+
 		public void Init(string name, Resolution unscaledResolution, RenderTextureFormat format = RenderTextureFormat.ARGBFloat, TextureDimension dimension = TextureDimension.Tex2D, int volumeDepth = 1)
 		{
 			_name = name;
@@ -35,7 +45,7 @@ namespace SphereTracing.DeferredRendering
 			};
 			_renderTexture.Create();
 
-			if (_isDownScaled)
+			if (IsDownScaled)
 			{
 				_step = Mathf.RoundToInt(1.0f / InternalResolutionFactor);
 				_scaledResolution = new Resolution
@@ -43,7 +53,7 @@ namespace SphereTracing.DeferredRendering
 					width = (int) Math.Floor(unscaledResolution.width * InternalResolutionFactor),
 					height = (int) Math.Floor(unscaledResolution.height * InternalResolutionFactor)
 				};
-				_renderTextureDownScaled = new RenderTexture(_scaledResolution.width, _scaledResolution.height, 0,
+				_renderTextureDownScaled = new RenderTexture(ScaledResolution.width, ScaledResolution.height, 0,
 					format, RenderTextureReadWrite.Linear)
 				{
 					enableRandomWrite = true,
@@ -64,7 +74,7 @@ namespace SphereTracing.DeferredRendering
 			computeShader.SetInt(_name + "Step", _step);
 			foreach (var kernel in kernels)
 			{
-				computeShader.SetTexture(kernel, _name + "Target", _isDownScaled ? _renderTextureDownScaled : _renderTexture);
+				computeShader.SetTexture(kernel, _name + "Target", IsDownScaled ? _renderTextureDownScaled : _renderTexture);
 				computeShader.SetTexture(kernel, _name + "Deferred", _renderTexture);
 			}
 		}

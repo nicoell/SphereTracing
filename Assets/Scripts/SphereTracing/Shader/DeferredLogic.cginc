@@ -4,12 +4,16 @@
 #include "Defines/Structs.cginc"
 #include "Inputs/DeferredRenderingInputs.cginc"
 
-#ifdef DEFERRED_CREATE
+//#ifdef DEFERRED_CREATE || DEFERRED_PROCESS
     bool ConsiderStep(in uint2 id, uniform int step) { return (step == 1 || id.x % step == 0 && id.y % step); }
-    uint2 GetScaledId(in uint2 id, uniform int step) { return (id / step); }
+    uint2 GetScaledId(in uint2 id, uniform int step) { return id / step; }
     void EncodeFloat4InTexture2DArray(uniform RWTexture2DArray<float4> tex, in uint3 xyz, uniform int step, in float4 val)
     {
         tex[uint3(GetScaledId(xyz.xy, step), xyz.z)] = val;
+    }
+    void EncodeUnscaledFloat4InTexture2DArray(uniform RWTexture2DArray<float4> tex, in uint3 xyz, uniform int step, in float4 val)
+    {
+        tex[xyz] = val;
     }
     void EncodeFloatInTexture2DArray(uniform RWTexture2DArray<float> tex, in uint3 xyz, uniform int step, in float val)
     {
@@ -34,13 +38,19 @@
         EncodeFloat4InTexture2DArray(target, uint3(xy, k*2 + 1), AmbientOcclusionStep, float4(representativeAo.BentNormal, representativeAo.SpecularOcclusion));
     }
     
+    void EncodeUnscaledAmbientOcclusion(uniform RWTexture2DArray<float4> target, in uint2 xy, in uint k, in AmbientOcclusion surfaceAo, in AmbientOcclusion representativeAo)
+    {
+        EncodeUnscaledFloat4InTexture2DArray(target, uint3(xy, k*2 + 0), AmbientOcclusionStep, float4(surfaceAo.BentNormal, surfaceAo.SpecularOcclusion));
+        EncodeUnscaledFloat4InTexture2DArray(target, uint3(xy, k*2 + 1), AmbientOcclusionStep, float4(representativeAo.BentNormal, representativeAo.SpecularOcclusion));
+    }
+    
     void EncodeDepth(uniform RWTexture2DArray<float> target, in uint2 xy, in uint k, in float surfaceDepth, in float representativeDepth)
     {
         EncodeFloatInTexture2DArray(target, uint3(xy, k*2 + 0), DepthStep, surfaceDepth);
         EncodeFloatInTexture2DArray(target, uint3(xy, k*2 + 1), DepthStep, representativeDepth);
     }
     
-#else 
+//#else 
 
 
 void DecodeSurfaceData(uniform Texture2DArray<float4> target, in uint2 xy, in uint k, out SurfaceData surface, out SurfaceData represent)
@@ -67,40 +77,17 @@ void DecodeDepth(uniform Texture2DArray<float> target, in uint2 xy, in uint k, o
     representativeDepth = target[uint3(xy, k*2 + 1)];
 }
 
-/*
-void DecodePositionTraceDistance(in float2 uv, out float3 position, out float traceDistance)
+AmbientOcclusion LerpAO(AmbientOcclusion ao0, AmbientOcclusion ao1, float t)
 {
-    float4 positionTraceDistance = DeferredPositionTraceDistanceDeferred.SampleLevel(sampler_linear_clamp, uv, 0);
-    position = positionTraceDistance.xyz;
-    traceDistance = positionTraceDistance.w;
+    AmbientOcclusion ret;
+    ret.BentNormal = lerp(ao0.BentNormal, ao1.BentNormal, t);
+    ret.SpecularOcclusion = lerp(ao0.SpecularOcclusion, ao1.SpecularOcclusion, t);
+    //ret.BentNormal = float3(t,1,t);
+    //ret.SpecularOcclusion = 1;
+    return ret;
 }
 
-
-
-void DecodeBentNormalDiffuseSpecularOcclusion(in float2 uv, out float3 bentNormal, out float diffuseOcclusion,  out float specularOcclusion)
-{
-    float4 bentNormalSpecularOcclusion = DeferredBentNormalSpecularOcclusionDeferred.SampleLevel(sampler_linear_clamp, uv, 0);
-    bentNormal = bentNormalSpecularOcclusion.xyz;
-    diffuseOcclusion = length(bentNormalSpecularOcclusion.xyz);
-    specularOcclusion = bentNormalSpecularOcclusion.w;
-}
-
-void DecodeAlbedoMetallic(in float2 uv, out float3 albedo, out float metallic)
-{
-    float4 albedoMetallic = DeferredAlbedoMetallicDeferred.SampleLevel(sampler_linear_clamp, uv, 0);
-    albedo = albedoMetallic.xyz;
-    metallic = albedoMetallic.w;
-}
-
-void DecodeEmissionRoughness(in float2 uv, out float3 emission, out float roughness)
-{
-    float4 emissionRoughness = DeferredEmissionRoughnessDeferred.SampleLevel(sampler_linear_clamp, uv, 0);
-    emission = emissionRoughness.xyz;
-    roughness = emissionRoughness.w;
-}
-*/
-
-#endif
+//#endif
 
 
 

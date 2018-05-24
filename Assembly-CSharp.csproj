@@ -64,7 +64,7 @@
     <Compile Include="Assets\Scripts\Utils\FreeRoamCamera.cs" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Inputs\DeferredFinalizeInputs.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\DeferredLogic.cginc" />
-    <None Include="Assets\Scripts\SphereTracing\Shader\Inputs\DeferredProcessingInputs.cginc" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\Inputs\DeferredProcessInputs.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Utils\ImplicitBasics.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Utils\Random.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Defines\Structs.cginc" />

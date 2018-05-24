@@ -3,7 +3,16 @@
 
 #include "../Defines/Structs.cginc"
 
-int LightCount;
+bool EnableAmbientOcclusion;
+bool EnableGlobalIllumination;
+
+StructuredBuffer<StMaterial> MaterialBuffer;
 StructuredBuffer<StLight> LightBuffer;
+int LightCount;
+
+float3 CameraDir;
+
+float3 GammaCorrection;
+float OcclusionExponent;
 
 #endif // DEFEREDFINALIZEINPUTS_INCLUDED
