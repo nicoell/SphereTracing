@@ -3,10 +3,13 @@
 
 #include "../Defines/Structs.cginc"
 
+int RenderOutput;
+
 bool EnableAmbientOcclusion;
 bool EnableGlobalIllumination;
 
 StructuredBuffer<StMaterial> MaterialBuffer;
+int MaterialCount;
 StructuredBuffer<StLight> LightBuffer;
 int LightCount;
 

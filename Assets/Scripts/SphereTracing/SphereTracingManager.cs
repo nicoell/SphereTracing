@@ -8,6 +8,28 @@ using UnityEngine.Rendering;
 
 namespace SphereTracing
 {
+
+	public enum RenderOutput
+	{
+		Color = 0,
+		SurfaceColor = 1, 
+		RepresentColor = 2,
+		SurfacePosition = 3,
+		SurfaceMaterialId = 4,
+		SurfaceNormal = 5,
+		SurfaceAlpha = 6,
+		SurfaceBentNormal = 7,
+		SurfaceSpecularOcclusion = 8,
+		SurfaceDepth = 9,
+		RepresentPosition = 10,
+		RepresentMaterialId = 11,
+		RepresentNormal = 12,
+		RepresentAlpha = 13,
+		RepresentBentNormal = 14,
+		RepresentSpecularOcclusion = 15,
+		RepresentDepth = 16
+	}
+	
 	public class SphereTracingManager : MonoBehaviour
 	{
 		private ComputeKernel[] _sphereTracingComputeKernels;
@@ -46,6 +68,7 @@ namespace SphereTracing
 		public DeferredRenderTarget SurfaceDataDrt;
 		public DeferredRenderTarget AmbientOcclusionDrt;
 		public DeferredRenderTarget DepthDrt;
+		public RenderOutput RenderOutput = RenderOutput.Color;
 		
 		[Header("Features")]
 		public bool EnableSuperSampling;
@@ -172,6 +195,8 @@ namespace SphereTracing
 			DeferredShader.SetFloat("OcclusionExponent", OcclusionExponent);
 			DeferredShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
 			DeferredShader.SetVector("GammaCorrection", GammaCorrection);
+			DeferredShader.SetInt("RenderOutput", (int) RenderOutput);
+			DeferredShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
 			
 			SphereTracingShader.SetVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 			SphereTracingShader.SetMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
@@ -333,7 +358,7 @@ namespace SphereTracing
 			_stMaterialBuffer = new ComputeBuffer(StMaterials.Length, StMaterialData.GetSize(), ComputeBufferType.Default);
 			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
 
-			//DeferredShader.SetInt("MaterialCount", StMaterials.Length);
+			DeferredShader.SetInt("MaterialCount", StMaterials.Length);
 		}
 		
 		private void UpdateStMaterials()

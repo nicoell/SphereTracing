@@ -23,7 +23,7 @@
 
 float3 Background(in Ray r);
 
-float4 Shading(SurfaceData surface, AmbientOcclusion ao, float depth, bool enableAo)
+float3 Shading(SurfaceData surface, AmbientOcclusion ao, float depth, bool enableAo)
 {
     float3 color = float3(.0, .0, .0);
     float3 ambientColor = float3(.1, .1, .1);
@@ -74,11 +74,11 @@ float4 Shading(SurfaceData surface, AmbientOcclusion ao, float depth, bool enabl
             float lambertian = max(dot(surface.Normal, lightDir), 0.0);
             float specular = 0.0;
             
-            if (lambertian > 0) {
+            //if (lambertian > 0) {
                 float3 halfDir = normalize(lightDir + (-CameraDir));
                 float specularAngle = max(dot(surface.Normal, halfDir), 0.0);
                 specular = pow(specularAngle, mat.Shininess);
-            } 
+            //} 
             
             diffuseColor += mat.DiffuseColor * lambertian * lightColor * attenuation;
             specularColor += mat.SpecularColor * specular * lightColor * attenuation;
@@ -97,9 +97,8 @@ float4 Shading(SurfaceData surface, AmbientOcclusion ao, float depth, bool enabl
 	    
 	}
 	//Gamma correct colors
-	color = pow( max(color,0.0), GammaCorrection);
  
-	return float4(color, surface.Alpha);
+	return float3(surface.Alpha * color);
 }
 
 void Main(uint3 id)
@@ -111,11 +110,34 @@ void Main(uint3 id)
     DecodeAmbientOcclusion(AmbientOcclusionDeferred, id.xy, 0, stUnion.SurfaceAo, stUnion.RepresentAo);
     DecodeDepth(DepthDeferred, id.xy, 0, stUnion.SurfaceDepth, stUnion.RepresentDepth);
     
-    float4 surfaceColor = Shading(stUnion.Surface, stUnion.SurfaceAo, stUnion.SurfaceDepth, EnableAmbientOcclusion);
-    float4 representColor = Shading(stUnion.Represent, stUnion.RepresentAo, stUnion.RepresentDepth, EnableAmbientOcclusion);
+    float3 surfaceColor = Shading(stUnion.Surface, stUnion.SurfaceAo, stUnion.SurfaceDepth, EnableAmbientOcclusion);
+    float3 representColor = Shading(stUnion.Represent, stUnion.RepresentAo, stUnion.RepresentDepth, EnableAmbientOcclusion);
+    
+    float3 outputColor = surfaceColor + representColor;
+    outputColor = pow( max(outputColor,0.0), GammaCorrection);
+    
+    if (RenderOutput == 0) DeferredOutput[uint2(id.xy)] = float4(outputColor, 1);
+    else if (RenderOutput == 1) DeferredOutput[uint2(id.xy)] = float4(surfaceColor, 1);
+    else if (RenderOutput == 2) DeferredOutput[uint2(id.xy)] = float4(representColor, 1);
+    
+    else if (RenderOutput == 3) DeferredOutput[uint2(id.xy)] = float4(stUnion.Surface.Position / ClippingPlanes.y, 1);
+    else if (RenderOutput == 4) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.Surface.MaterialId / MaterialCount, 1);
+    else if (RenderOutput == 5) DeferredOutput[uint2(id.xy)] = float4(stUnion.Surface.Normal, 1);
+    else if (RenderOutput == 6) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.Surface.Alpha, 1);
+    else if (RenderOutput == 7) DeferredOutput[uint2(id.xy)] = float4(stUnion.SurfaceAo.BentNormal, 1);
+    else if (RenderOutput == 8) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.SurfaceAo.SpecularOcclusion, 1);
+    else if (RenderOutput == 9) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.SurfaceDepth / ClippingPlanes.y, 1);
+    
+    else if (RenderOutput == 10) DeferredOutput[uint2(id.xy)] = float4(stUnion.Represent.Position / ClippingPlanes.y, 1);
+    else if (RenderOutput == 11) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.Represent.MaterialId / MaterialCount, 1);
+    else if (RenderOutput == 12) DeferredOutput[uint2(id.xy)] = float4(stUnion.Represent.Normal, 1);
+    else if (RenderOutput == 13) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.Represent.Alpha, 1);
+    else if (RenderOutput == 14) DeferredOutput[uint2(id.xy)] = float4(stUnion.RepresentAo.BentNormal, 1);
+    else if (RenderOutput == 15) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.RepresentAo.SpecularOcclusion, 1);
+    else if (RenderOutput == 16) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.RepresentDepth/ ClippingPlanes.y, 1);
     
     //DeferredOutput[uint2(id.xy)] = float4(surfaceColor.rgb, 1);
-    DeferredOutput[uint2(id.xy)] = float4(surfaceColor.a * surfaceColor.rgb + representColor.a * representColor.rgb, 1);
+    
     //DeferredOutput[uint2(id.xy)] = float4(stUnion.Surface.Normal + stUnion.Represent.Alpha * stUnion.Represent.Normal, 1);
 
 }
