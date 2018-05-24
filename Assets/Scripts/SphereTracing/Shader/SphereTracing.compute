@@ -81,7 +81,7 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
 	    float2 nextMap = Map(r.Origin + (t + currentMap.x) * r.Direction);
 
 	    //Test if we are inside pixelRadius
-	    if (currentMap.x < RadiusPixel) {
+	    if (currentMap.x < (t * RadiusPixel)) {
 	        //We are inside the pixelRadius but we didn't hit a surface
 	        //Test if the next sphere is bigger than the current one
 	        if (nextMap.x > currentMap.x){
@@ -104,6 +104,7 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
 	            representFound = false;
 	        }
 	    }
+	    
 	    t += currentMap.x;
 	    currentMap = nextMap;
 	    
@@ -117,7 +118,7 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
 	//Test if we found a represent by checking its MaterialId
 	if (representHit.MaterialId >= 0) {
 	    //Calculate how much the represent covers the pixel
-	    representHit.Alpha = 1.0 - representHit.DistanceToWorld / RadiusPixel;
+	    representHit.Alpha = 1.0 - representHit.DistanceToWorld / (representHit.TraceDistance * RadiusPixel);
 	    representHit.Position = r.Origin + representHit.TraceDistance * r.Direction;
 	}
     

@@ -158,7 +158,7 @@ MonoBehaviour:
   ComputeShaderKernel: 2
   SphereTracingSteps: 1024
   KBufferSlices: 1
-  RadiusPixel: 0.02
+  RadiusPixel: 0.003
   SurfaceDataDrt:
     InternalResolutionFactor: 1
   AmbientOcclusionDrt:
