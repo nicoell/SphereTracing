@@ -23,6 +23,7 @@
 
 void Main(uint3 id)
 {
+    /*
     //Bicubic Upscaling
     //if (!ConsiderAmbientOcclusion(id.xy)) return;
     //uint2 s = uint2(AmbientOcclusionStep, 0);
@@ -66,6 +67,7 @@ void Main(uint3 id)
             //EncodeUnscaledAmbientOcclusion(AmbientOcclusionDeferred, xy00 + xy, 0, sao00, rao00);
         }
     }
+    */
 }
 
 [numthreads(CSMainHighThreadsX, CSMainHighThreadsY, CSMainHighThreadsZ)]

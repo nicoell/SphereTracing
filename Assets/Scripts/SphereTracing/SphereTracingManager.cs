@@ -4,6 +4,7 @@ using SphereTracing.DeferredRendering;
 using SphereTracing.Lights;
 using SphereTracing.Materials;
 using UnityEngine;
+using UnityEngine.Experimental.UIElements;
 using UnityEngine.Rendering;
 
 namespace SphereTracing
@@ -32,14 +33,15 @@ namespace SphereTracing
 	
 	public class SphereTracingManager : MonoBehaviour
 	{
-		private ComputeKernel[] _sphereTracingComputeKernels;
-		private ComputeKernel[] _upscaleComputeKernels;
-		private ComputeKernel[] _deferredComputeKernels;
+		private ComputeKernel[] _sphereTracingFKernels;
+		private ComputeKernel[] _sphereTracingKKernels;
+		private ComputeKernel[] _sphereTracingAoKernels;
+		//private ComputeKernel[] _upscaleComputeKernels;
+		private ComputeKernel[] _deferredKernels;
 		private int _prevComputeKernel;
 		private Resolution _targetResolution;
 		private RenderTexture _deferredOutput;
-
-		
+		private RenderTexture _sphereTracingData;
 		
 		#region PublicVariables Adjustable in Editor
 
@@ -47,33 +49,33 @@ namespace SphereTracing
 		public ComputeShader SphereTracingShader;
 		public ComputeShader UpscaleShader;
 		public ComputeShader DeferredShader;
-
-		[Header("Quality and Resolution Settings")]
+		
+		[Header("Resolution")]
 		public bool UseCustomResolution;
 		public Vector2Int CustomResolution;
-		[Tooltip("Kernels have a different ThreadGroupSizes. 0: High; 1: Mid; 2: Low Size.")]
 		
+		[Header("Quality Settings")]
+		[Tooltip("Kernels have a different ThreadGroupSizes. 0: High; 1: Mid; 2: Low Size.")]
 		[Range(0, 2)]
 		public int ComputeShaderKernel;
 		[Range(2, 1024)]
 		public int SphereTracingSteps = 32;
-		[Range(1, 12)]
-		public int KBufferSlices = 1;
+		[Range(0, 32)]
+		public int IterativeSteps = 0;
+		[Header("Render Settings")]
+		public RenderOutput RenderOutput = RenderOutput.Color;
+		public Vector3 GammaCorrection = Vector3.one;
 
 		[Header("Anti Aliasing")]
 		[Range(0.001f, 1f)]
 		public float RadiusPixel = 0.01f;
 		
-		[Header("Deferred Rendering")]
-		public DeferredRenderTarget SurfaceDataDrt;
-		public DeferredRenderTarget AmbientOcclusionDrt;
-		public DeferredRenderTarget DepthDrt;
-		public RenderOutput RenderOutput = RenderOutput.Color;
-		
 		[Header("Features")]
 		public bool EnableSuperSampling;
 		public int LightCount = 1;
-
+		public Color ClearColor = Color.black;
+		
+		[Header("Ambient Occlusion")]
 		public bool EnableAmbientOcclusion;
 		[Range(1, 32)]
 		public int AmbientOcclusionSamples = 5;
@@ -87,10 +89,11 @@ namespace SphereTracing
 		public float OcclusionExponent = 1.0f;
 		[Range(0f, 1f)]
 		public float BentNormalFactor = 1.0f;
-
+		[Space(10)]
 		public bool EnableGlobalIllumination;
-
-		public Vector3 GammaCorrection = Vector3.one;
+		[Space(10)]
+		[Tooltip("Control the resolution of ambient occlusion rendering.")]
+		public DeferredRenderTarget AmbientOcclusionDrt;
 
 		#endregion
 		
@@ -115,30 +118,37 @@ namespace SphereTracing
 			};
 			_deferredOutput.Create();
 			
+			_sphereTracingData = new RenderTexture(_targetResolution.width, _targetResolution.height, 0,
+				RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
+			{
+				enableRandomWrite = true,
+				useMipMap = false,
+				dimension = TextureDimension.Tex2DArray,
+				volumeDepth = 6
+			};
+			_sphereTracingData.Create();
+			
+			AmbientOcclusionDrt.Init("AmbientOcclusion", _targetResolution, RenderTextureFormat.ARGBFloat, TextureDimension.Tex2DArray, 2);
 
-			//Set SharedInputs as global
-			SphereTracingShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
-			DeferredShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
-			UpscaleShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
-			//Shader.SetGlobalFloatArray("Resolution", new float[] {_targetResolution.width, _targetResolution.height});
+			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, "SphereTracingFPassH",
+				"SphereTracingFPassM", "SphereTracingFPassL"); 
+			_sphereTracingKKernels = InitComputeKernels(SphereTracingShader, _targetResolution, "SphereTracingKPassH",
+				"SphereTracingKPassM", "SphereTracingKPassL"); 
+			_sphereTracingAoKernels = InitComputeKernels(SphereTracingShader, AmbientOcclusionDrt.Resolution, "AmbientOcclusionH",
+				"AmbientOcclusionM", "AmbientOcclusionL");
+			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, "DeferredH", "DeferredM", "DeferredL");
 
-			InitDeferredRenderTargets();
-			_sphereTracingComputeKernels = InitComputeKernels(SphereTracingShader, _targetResolution, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
-			_upscaleComputeKernels = InitComputeKernels(UpscaleShader, AmbientOcclusionDrt.IsDownScaled ? AmbientOcclusionDrt.ScaledResolution : _targetResolution, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
-			_deferredComputeKernels = InitComputeKernels(DeferredShader, _targetResolution, new []{"CSMainHigh", "CSMainMid", "CSMainLow"});
+			SetShaderPropertiesOnce();
 			InitLights();
 			InitMaterials();
 		}
 
-		private ComputeKernel[] InitComputeKernels(ComputeShader computeShader, Resolution res, string[] kernelNames)
+		private ComputeKernel[] InitComputeKernels(ComputeShader computeShader, Resolution res, params string[] kernelNames)
 		{
-			var ret = new ComputeKernel[3];
-			ret[0].Name = "CSMainHigh";
-			ret[1].Name = "CSMainMid";
-			ret[2].Name = "CSMainLow";
-
-			for (var i = 0; i < ret.Length; i++)
+			var ret = new ComputeKernel[kernelNames.Length];
+			for (int i = 0; i < ret.Length; i++)
 			{
+				ret[i].Name = kernelNames[i];
 				ret[i].Id = computeShader.FindKernel(ret[i].Name);
 				uint threadGroupX, threadGroupY, threadGroupZ;
 				computeShader.GetKernelThreadGroupSizes(ret[i].Id, out threadGroupX,
@@ -150,32 +160,69 @@ namespace SphereTracing
 			return ret;
 		}
 
-		
-		private void InitDeferredRenderTargets()
+		private void SetShaderPropertiesOnce()
 		{
-			SurfaceDataDrt.Init("SurfaceData", _targetResolution, RenderTextureFormat.ARGBFloat ,TextureDimension.Tex2DArray, 6 * KBufferSlices);
-			AmbientOcclusionDrt.Init("AmbientOcclusion", _targetResolution, RenderTextureFormat.ARGBFloat, TextureDimension.Tex2DArray, 2 * KBufferSlices);
-			DepthDrt.Init("Depth", _targetResolution, RenderTextureFormat.RFloat, TextureDimension.Tex2DArray, 2 * KBufferSlices);
-
-			UpdateDeferredRenderTargets();
+			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
+			var computeShaders = new[] { SphereTracingShader, UpscaleShader, DeferredShader};
+			foreach (var computeShader in computeShaders)
+			{
+				computeShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
+				computeShader.SetFloats("AoResolution", AmbientOcclusionDrt.Resolution.width, AmbientOcclusionDrt.Resolution.height);
+			}
+			//Only bind textures once
+			foreach (var kernel in _sphereTracingFKernels)
+			{
+				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+			}
+			foreach (var kernel in _sphereTracingKKernels)
+			{
+				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+			}
+			foreach (var kernel in _sphereTracingAoKernels)
+			{
+				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+				SphereTracingShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+			}
+			foreach (var kernel in _deferredKernels)
+			{
+				DeferredShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+				DeferredShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+				DeferredShader.SetTexture(kernel.Id, "DeferredOutputTexture", _deferredOutput);
+			}
 		}
 
-		private void UpdateDeferredRenderTargets()
+		private void SetShaderPropertiesPerFrame()
 		{
-			var csArr = new ComputeShader[3];
-			csArr[0] = SphereTracingShader;
-			csArr[1] = UpscaleShader;
-			csArr[2] = DeferredShader;
-			foreach (var cs in csArr)
+			//Note: Materials and Lights are set seperately in respective regions 
+			
+			//Set Properties global if possible for simplicity
+			Shader.SetGlobalFloat("OcclusionExponent", OcclusionExponent);
+			Shader.SetGlobalFloat("RadiusPixel", RadiusPixel);
+			Shader.SetGlobalFloat("AmbientOcclusionMaxDistance", AmbientOcclusionMaxDistance);
+			Shader.SetGlobalFloat("SpecularOcclusionStrength", SpecularOcclusionStrength);
+			Shader.SetGlobalFloat("BentNormalFactor", BentNormalFactor);
+			Shader.SetGlobalInt("RenderOutput", (int) RenderOutput);
+			Shader.SetGlobalInt("SphereTracingSteps", SphereTracingSteps);
+			Shader.SetGlobalInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
+			Shader.SetGlobalInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
+			Shader.SetGlobalVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
+			Shader.SetGlobalVector("CameraPos", Camera.main.transform.position);
+			Shader.SetGlobalVector("CameraDir", Camera.main.transform.forward);
+			Shader.SetGlobalVector("GammaCorrection", GammaCorrection);
+			Shader.SetGlobalColor("ClearColor", ClearColor);
+			Shader.SetGlobalVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
+			Shader.SetGlobalMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
+			
+			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
+			var computeShaders = new[] { SphereTracingShader, UpscaleShader, DeferredShader};
+			foreach (var computeShader in computeShaders)
 			{
-				SurfaceDataDrt.BindToComputeShader(cs, 0, 1, 2);
-				AmbientOcclusionDrt.BindToComputeShader(cs, 0, 1, 2);
-				DepthDrt.BindToComputeShader(cs, 0, 1, 2);
-				for (int i = 0; i < 3; i++)
-				{//TODO: make nicer
-					cs.SetTexture(i, "DeferredOutput", _deferredOutput);
-				} 
+				computeShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
+				computeShader.SetBool("EnableSuperSampling", EnableSuperSampling);
+				computeShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
+				computeShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
 			}
+			
 		}
 		
 		// Update is called once per frame
@@ -183,57 +230,61 @@ namespace SphereTracing
 		{
 			UpdateStLights();
 			UpdateStMaterials();
+			SetShaderPropertiesPerFrame();
+			
 
-			Shader.SetGlobalVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
-			Shader.SetGlobalInt("KBufferSlices", KBufferSlices);
+			//Do first SphereTracing step and write SphereTracingData into textures
+			SphereTracingShader.Dispatch(_sphereTracingFKernels[ComputeShaderKernel].Id,
+				_sphereTracingFKernels[ComputeShaderKernel].ThreadGroups.x,
+				_sphereTracingFKernels[ComputeShaderKernel].ThreadGroups.y,
+				_sphereTracingFKernels[ComputeShaderKernel].ThreadGroups.z);
 			
-			SphereTracingShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
-			UpscaleShader.SetBool("EnableSuperSampling", EnableSuperSampling);
-			DeferredShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
-			DeferredShader.SetBool("EnableSuperSampling", EnableSuperSampling);
-			DeferredShader.SetVector("CameraDir", Camera.main.transform.forward);
-			DeferredShader.SetFloat("OcclusionExponent", OcclusionExponent);
-			DeferredShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
-			DeferredShader.SetVector("GammaCorrection", GammaCorrection);
-			DeferredShader.SetInt("RenderOutput", (int) RenderOutput);
-			DeferredShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
+			//If ambient occlusion is enabled, calculate AO next
+			if (EnableAmbientOcclusion)
+			{
+				SphereTracingShader.Dispatch(_sphereTracingAoKernels[ComputeShaderKernel].Id,
+					_sphereTracingAoKernels[ComputeShaderKernel].ThreadGroups.x,
+					_sphereTracingAoKernels[ComputeShaderKernel].ThreadGroups.y,
+					_sphereTracingAoKernels[ComputeShaderKernel].ThreadGroups.z);
+			}
 			
-			SphereTracingShader.SetVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
-			SphereTracingShader.SetMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
-			SphereTracingShader.SetVector("CameraPos", Camera.main.transform.position);
-			SphereTracingShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
-			SphereTracingShader.SetInt("SphereTracingSteps", SphereTracingSteps);
-			SphereTracingShader.SetBool("EnableSuperSampling", EnableSuperSampling);
-			SphereTracingShader.SetFloat("RadiusPixel", RadiusPixel);
-			SphereTracingShader.SetInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
-			SphereTracingShader.SetInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
-			SphereTracingShader.SetFloat("AmbientOcclusionMaxDistance", AmbientOcclusionMaxDistance);
-			SphereTracingShader.SetFloat("SpecularOcclusionStrength", SpecularOcclusionStrength);
-			SphereTracingShader.SetFloat("BentNormalFactor", BentNormalFactor);
-			
-			
-			//UpdateDeferredRenderTargets();
-			//Do SphereTracing and render into deferred render textures
-			SphereTracingShader.Dispatch(_sphereTracingComputeKernels[ComputeShaderKernel].Id,
-				_sphereTracingComputeKernels[ComputeShaderKernel].ThreadGroups.x,
-				_sphereTracingComputeKernels[ComputeShaderKernel].ThreadGroups.y,
-				_sphereTracingComputeKernels[ComputeShaderKernel].ThreadGroups.z);
-			
-			//Upscaling of lowres render textures
+			/*Upscaling of lowres render textures
 			if (AmbientOcclusionDrt.IsDownScaled)
 			{
-				UpscaleShader.Dispatch(_upscaleComputeKernels[ComputeShaderKernel].Id,
-					_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.x,
-					_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.y,
-					_upscaleComputeKernels[ComputeShaderKernel].ThreadGroups.z);
+				//...
+			}*/
+			
+			DeferredShader.SetBool("IsFirstPass", true);
+			//Deferred Rendering step to calculate lightning and finalize image
+			DeferredShader.Dispatch(_deferredKernels[ComputeShaderKernel].Id,
+				_deferredKernels[ComputeShaderKernel].ThreadGroups.x,
+				_deferredKernels[ComputeShaderKernel].ThreadGroups.y,
+				_deferredKernels[ComputeShaderKernel].ThreadGroups.z);
+			
+			DeferredShader.SetBool("IsFirstPass", false);
+			for (int iterativeStep = 0; iterativeStep < IterativeSteps; iterativeStep++)
+			{
+				//Perform iterative steps for transparency and reflections
+				//Do kPass SphereTracing step and write SphereTracingData into textures
+				SphereTracingShader.Dispatch(_sphereTracingKKernels[ComputeShaderKernel].Id,
+					_sphereTracingKKernels[ComputeShaderKernel].ThreadGroups.x,
+					_sphereTracingKKernels[ComputeShaderKernel].ThreadGroups.y,
+					_sphereTracingKKernels[ComputeShaderKernel].ThreadGroups.z);
+				
+				//If ambient occlusion is enabled, calculate AO next
+				if (EnableAmbientOcclusion)
+				{
+					SphereTracingShader.Dispatch(_sphereTracingAoKernels[ComputeShaderKernel].Id,
+						_sphereTracingAoKernels[ComputeShaderKernel].ThreadGroups.x,
+						_sphereTracingAoKernels[ComputeShaderKernel].ThreadGroups.y,
+						_sphereTracingAoKernels[ComputeShaderKernel].ThreadGroups.z);
+				}
+				//Deferred Rendering step to calculate lightning and finalize image
+				DeferredShader.Dispatch(_deferredKernels[ComputeShaderKernel].Id,
+					_deferredKernels[ComputeShaderKernel].ThreadGroups.x,
+					_deferredKernels[ComputeShaderKernel].ThreadGroups.y,
+					_deferredKernels[ComputeShaderKernel].ThreadGroups.z);
 			}
-
-			//UpdateDeferredRenderTargets();
-			//Lightning pass
-			DeferredShader.Dispatch(_deferredComputeKernels[ComputeShaderKernel].Id,
-				_deferredComputeKernels[ComputeShaderKernel].ThreadGroups.x,
-				_deferredComputeKernels[ComputeShaderKernel].ThreadGroups.y,
-				_deferredComputeKernels[ComputeShaderKernel].ThreadGroups.z);
 
 		}
 
@@ -314,7 +365,7 @@ namespace SphereTracing
 			_stLightBuffer.SetData(_stLightData);
 			if (_stLights == null) _stLights = new List<StLight>();
 
-			DeferredShader.SetInt("LightCount", LightCount);
+			Shader.SetGlobalInt("LightCount", LightCount);
 		}
 
 		public void RegisterStLight(StLight stLight)
@@ -343,7 +394,7 @@ namespace SphereTracing
 
 			_stLightBuffer.SetData(_stLightData);
 
-			DeferredShader.SetBuffer(_deferredComputeKernels[ComputeShaderKernel].Id, "LightBuffer", _stLightBuffer);
+			DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "LightBuffer", _stLightBuffer);
 		}
 
 		#endregion
@@ -358,14 +409,15 @@ namespace SphereTracing
 			_stMaterialBuffer = new ComputeBuffer(StMaterials.Length, StMaterialData.GetSize(), ComputeBufferType.Default);
 			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
 
-			DeferredShader.SetInt("MaterialCount", StMaterials.Length);
+			Shader.SetGlobalInt("MaterialCount", StMaterials.Length);
 		}
 		
 		private void UpdateStMaterials()
 		{
 			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
 
-			DeferredShader.SetBuffer(_sphereTracingComputeKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
+			DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
+			SphereTracingShader.SetBuffer(_sphereTracingKKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
 		}
 		
 		#endregion

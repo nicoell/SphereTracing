@@ -1,7 +1,7 @@
 #ifndef STRUCTS_INCLUDED
 #define STRUCTS_INCLUDED
 
-struct SurfaceData
+struct SphereTracingData
 {
     float3 Position;
     float MaterialId;
@@ -17,15 +17,6 @@ struct AmbientOcclusion
     float SpecularOcclusion;
 };
 
-struct StUnion
-{
-    SurfaceData Surface;
-	SurfaceData Represent;
-	AmbientOcclusion SurfaceAo;
-	AmbientOcclusion RepresentAo;
-	//float SurfaceDepth;
-	//float RepresentDepth;
-};
 
 struct Ray
 {

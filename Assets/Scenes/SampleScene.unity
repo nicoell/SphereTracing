@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.1273174, g: 0.13414761, b: 0.12107885, a: 1}
+  m_IndirectSpecularColor: {r: 0.12731749, g: 0.13414757, b: 0.1210787, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -157,17 +157,13 @@ MonoBehaviour:
   CustomResolution: {x: 1024, y: 768}
   ComputeShaderKernel: 2
   SphereTracingSteps: 1024
-  KBufferSlices: 1
-  RadiusPixel: 0.003
-  SurfaceDataDrt:
-    InternalResolutionFactor: 1
-  AmbientOcclusionDrt:
-    InternalResolutionFactor: 1
-  DepthDrt:
-    InternalResolutionFactor: 1
+  IterativeSteps: 3
   RenderOutput: 0
+  GammaCorrection: {x: 2, y: 2, z: 2}
+  RadiusPixel: 0.003
   EnableSuperSampling: 0
   LightCount: 2
+  ClearColor: {r: 0, g: 0, b: 0, a: 1}
   EnableAmbientOcclusion: 1
   AmbientOcclusionSamples: 9
   AmbientOcclusionSteps: 14
@@ -176,7 +172,8 @@ MonoBehaviour:
   OcclusionExponent: 1
   BentNormalFactor: 1
   EnableGlobalIllumination: 0
-  GammaCorrection: {x: 2, y: 2, z: 2}
+  AmbientOcclusionDrt:
+    InternalResolutionFactor: 0.5
   StMaterials:
   - {fileID: 11400000, guid: d4562ad213ac2e745947311169ee0846, type: 2}
   - {fileID: 11400000, guid: 51db7d2e4bd0c8d4e8062480961ee18c, type: 2}

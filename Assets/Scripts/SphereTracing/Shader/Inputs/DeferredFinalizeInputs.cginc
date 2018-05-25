@@ -5,6 +5,9 @@
 
 int RenderOutput;
 
+bool IsFirstPass;
+float4 ClearColor;
+
 bool EnableAmbientOcclusion;
 bool EnableGlobalIllumination;
 

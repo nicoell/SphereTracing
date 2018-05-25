@@ -1,18 +1,20 @@
-#pragma kernel CSMainHigh   DEFERRED_FINALIZE
-#pragma kernel CSMainMid    DEFERRED_FINALIZE
-#pragma kernel CSMainLow    DEFERRED_FINALIZE
+#pragma kernel DeferredH DEF_RW ST_R AO_R HIGH
+#pragma kernel DeferredM DEF_RW ST_R AO_R MID
+#pragma kernel DeferredL DEF_RW ST_R AO_R LOW
 
-#define CSMainHighThreadsX 32
-#define CSMainHighThreadsY 20
-#define CSMainHighThreadsZ 1
-
-#define CSMainMidThreadsX 16
-#define CSMainMidThreadsY 16
-#define CSMainMidThreadsZ 1
-
-#define CSMainLowThreadsX 8
-#define CSMainLowThreadsY 8
-#define CSMainLowThreadsZ 1
+#ifdef HIGH
+    #define ThreadsX 32
+    #define ThreadsY 20
+    #define ThreadsZ 1
+#elif MID
+    #define ThreadsX 16
+    #define ThreadsY 16
+    #define ThreadsZ 1
+#elif LOW
+    #define ThreadsX 8
+    #define ThreadsY 8
+    #define ThreadsZ 1
+#endif
 
 #include "Inputs/DeferredFinalizeInputs.cginc"
 #include "Inputs/DeferredRenderingInputs.cginc"
@@ -23,7 +25,7 @@
 
 float3 Background(in Ray r);
 
-float3 Shading(SurfaceData surface, AmbientOcclusion ao)
+float3 Shading(SphereTracingData surface, AmbientOcclusion ao)
 {
     float3 color = float3(.0, .0, .0);
     
@@ -96,7 +98,7 @@ float3 Shading(SurfaceData surface, AmbientOcclusion ao)
 	} else {
 	    Ray r;
 	    r.Origin = float3(0,0,0);
-	    r.Direction = surface.Normal;
+	    r.Direction = surface.RayDirection;
 	    color = Background(r);
 	    
 	}
@@ -109,16 +111,16 @@ void Main(uint3 id)
 {
     float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
     
-    SurfaceData Surface;
-	SurfaceData Represent;
+    SphereTracingData Surface;
+	SphereTracingData Represent;
 	AmbientOcclusion SurfaceAo;
 	AmbientOcclusion RepresentAo;
     
-    DecodeSurfaceData(SurfaceDataDeferred, id.xy, 0, Surface);
-    DecodeSurfaceData(SurfaceDataDeferred, id.xy, 1, Represent);
+    DecodeSphereTracingData(id.xy, 0, Surface);
+    DecodeSphereTracingData(id.xy, 1, Represent);
     if (EnableAmbientOcclusion) {
-        DecodeAmbientOcclusionBilateral(AmbientOcclusionDeferred, uv, 0, 0, SurfaceAo);
-        DecodeAmbientOcclusionBilateral(AmbientOcclusionDeferred, uv, 1, 0, RepresentAo);
+        DecodeAmbientOcclusionBilateral(uv, 0, 0, SurfaceAo);
+        DecodeAmbientOcclusionBilateral(uv, 1, 0, RepresentAo);
     } else {
         //... Need to fill struct maybe
     }
@@ -129,39 +131,39 @@ void Main(uint3 id)
     float3 outputColor = surfaceColor + representColor;
     outputColor = pow( max(outputColor,0.0), GammaCorrection);
     
-    //TODO: if FirstPass DeferredOutput[uint2(id.xy)] = (float4) 0;
+    if (IsFirstPass) DeferredOutputTexture[uint2(id.xy)] = ClearColor;
     
     
-    if (RenderOutput == 0) DeferredOutput[uint2(id.xy)] =      DeferredOutput[uint2(id.xy)] + float4(outputColor, 1);
-    else if (RenderOutput == 1) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(surfaceColor, 1);
-    else if (RenderOutput == 2) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(representColor, 1);
+    if (RenderOutput == 0) DeferredOutputTexture[uint2(id.xy)] =      DeferredOutputTexture[uint2(id.xy)] + float4(outputColor, 1);
+    else if (RenderOutput == 1) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(surfaceColor, 1);
+    else if (RenderOutput == 2) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(representColor, 1);
     
-    else if (RenderOutput == 3) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(Surface.Position / ClippingPlanes.y, 1);
-    else if (RenderOutput == 4) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) Surface.MaterialId / MaterialCount, 1);
-    else if (RenderOutput == 5) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(Surface.Normal, 1);
-    else if (RenderOutput == 6) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) Surface.Alpha, 1);
-    else if (RenderOutput == 7) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(SurfaceAo.BentNormal, 1);
-    else if (RenderOutput == 8) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) SurfaceAo.SpecularOcclusion, 1);
-    else if (RenderOutput == 9) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) SurfaceDepth / ClippingPlanes.y, 1);
+    else if (RenderOutput == 3) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(Surface.Position / ClippingPlanes.y, 1);
+    else if (RenderOutput == 4) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Surface.MaterialId / MaterialCount, 1);
+    else if (RenderOutput == 5) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(Surface.Normal, 1);
+    else if (RenderOutput == 6) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Surface.Alpha, 1);
+    else if (RenderOutput == 7) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(SurfaceAo.BentNormal, 1);
+    else if (RenderOutput == 8) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) SurfaceAo.SpecularOcclusion, 1);
+    else if (RenderOutput == 9) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Surface.TraceDistance / ClippingPlanes.y, 1);
     
-    else if (RenderOutput == 10) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(Represent.Position / ClippingPlanes.y, 1);
-    else if (RenderOutput == 11) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) Represent.MaterialId / MaterialCount, 1);
-    else if (RenderOutput == 12) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(Represent.Normal, 1);
-    else if (RenderOutput == 13) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) Represent.Alpha, 1);
-    else if (RenderOutput == 14) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(RepresentAo.BentNormal, 1);
-    else if (RenderOutput == 15) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) RepresentAo.SpecularOcclusion, 1);
-    else if (RenderOutput == 16) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) RepresentDepth/ ClippingPlanes.y, 1);
+    else if (RenderOutput == 10) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(Represent.Position / ClippingPlanes.y, 1);
+    else if (RenderOutput == 11) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Represent.MaterialId / MaterialCount, 1);
+    else if (RenderOutput == 12) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(Represent.Normal, 1);
+    else if (RenderOutput == 13) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Represent.Alpha, 1);
+    else if (RenderOutput == 14) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(RepresentAo.BentNormal, 1);
+    else if (RenderOutput == 15) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) RepresentAo.SpecularOcclusion, 1);
+    else if (RenderOutput == 16) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Represent.TraceDistance/ ClippingPlanes.y, 1);
     
 }
 
-[numthreads(CSMainHighThreadsX, CSMainHighThreadsY, CSMainHighThreadsZ)]
-void CSMainHigh (uint3 id : SV_DispatchThreadID) { Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void DeferredH (uint3 id : SV_DispatchThreadID) { Main(id); }
 
-[numthreads(CSMainMidThreadsX, CSMainMidThreadsY, CSMainMidThreadsZ)]
-void CSMainMid (uint3 id : SV_DispatchThreadID) { Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void DeferredM (uint3 id : SV_DispatchThreadID) { Main(id); }
 
-[numthreads(CSMainLowThreadsX, CSMainLowThreadsY, CSMainLowThreadsZ)]
-void CSMainLow (uint3 id : SV_DispatchThreadID) {  Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void DeferredL (uint3 id : SV_DispatchThreadID) { Main(id); }
 
 
 /*

@@ -4,77 +4,91 @@
 #include "Defines/Structs.cginc"
 #include "Inputs/DeferredRenderingInputs.cginc"
 
-//#ifdef DEFERRED_CREATE || DEFERRED_PROCESS
-    //bool ConsiderStep(in uint2 id, uniform int step) { return (step == 1 || id.x % step == 0 && id.y % step); }
-    //uint2 GetScaledId(in uint2 id, uniform int step) { return id / step; }
-    void EncodeFloat4InTexture2DArray(uniform RWTexture2DArray<float4> tex, in uint3 xyz, in float4 val)
+/*
+ * Encode functions to ease write of data in textures.
+ * - Only define functions if corresponing (R)ead(W)rite define is set. 
+ */
+
+    #ifdef ST_RW
+    void EncodeSphereTracingData(in uint2 xy, in uint k, in SphereTracingData surface)
     {
-        tex[xyz] = val;
+        SphereTracingDataTexture[uint3(xy, k*3 + 0)] = float4(surface.Position, surface.MaterialId);
+        SphereTracingDataTexture[uint3(xy, k*3 + 1)] = float4(surface.RayDirection, surface.TraceDistance);
+        SphereTracingDataTexture[uint3(xy, k*3 + 2)] = float4(surface.Normal, surface.Alpha);
+    }
+    #endif
+    
+    #ifdef AO_RW
+    void EncodeAmbientOcclusion(in uint2 xy, in uint k, in AmbientOcclusion surfaceAo)
+    {
+        AmbientOcclusionTexture[uint3(xy, k)] = float4(surfaceAo.BentNormal, surfaceAo.SpecularOcclusion);
+    }
+    #endif
+
+/*
+ * Decode functions to ease reading of texture data.
+ * - Only define functions if corresponing (R)ead or (R)ead(W)rite defines are set.
+ */
+
+    #if defined(ST_R) || defined(ST_RW)
+    void DecodeSphereTracingData(in uint2 xy, in uint k, out SphereTracingData surface)
+    {
+        surface.Position = SphereTracingDataTexture[uint3(xy, k*3 + 0)].xyz;
+        surface.MaterialId = (int) SphereTracingDataTexture[uint3(xy, k*3 + 0)].w;
+        surface.RayDirection = SphereTracingDataTexture[uint3(xy, k*3 + 1)].xyz;
+        surface.TraceDistance = SphereTracingDataTexture[uint3(xy, k*3 + 1)].w;
+        surface.Normal = SphereTracingDataTexture[uint3(xy, k*3 + 2)].xyz;
+        surface.Alpha = SphereTracingDataTexture[uint3(xy, k*3 + 2)].w;
     }
     
-    void EncodeFloatInTexture2DArray(uniform RWTexture2DArray<float> tex, in uint3 xyz, in float val)
+    void DecodeRay(in uint2 xy, in uint k, inout Ray r)
     {
-        tex[xyz] = val;
+        r.Origin = SphereTracingDataTexture[uint3(xy, k*3 + 0)].xyz;
+        r.Direction = SphereTracingDataTexture[uint3(xy, k*3 + 1)].xyz;
     }
     
-    //bool ConsiderSurfaceData(uint2 id) { return ConsiderStep(id, SurfaceDataStep); }
-    //bool ConsiderAmbientOcclusion(uint2 id) { return ConsiderStep(id, AmbientOcclusionStep); }
-    //bool ConsiderDepth(uint2 id) { return ConsiderStep(id, DepthStep); }
-    
-    void EncodeSurfaceData(uniform RWTexture2DArray<float4> target, in uint2 xy, in uint k, in SurfaceData surface)
+    float DecodeAlpha(in uint2 xy, in uint k)
     {
-        EncodeFloat4InTexture2DArray(target, uint3(xy, k*3 + 0), SurfaceDataStep, float4(surface.Position, surface.MaterialId));
-        EncodeFloat4InTexture2DArray(target, uint3(xy, k*3 + 1), SurfaceDataStep, float4(surface.RayDirection, surface.TraceDistance));
-        EncodeFloat4InTexture2DArray(target, uint3(xy, k*3 + 2), SurfaceDataStep, float4(surface.Normal, surface.Alpha));
+        return SphereTracingDataTexture[uint3(xy, k*3 + 2)].w;
     }
+    #endif
     
-    void EncodeAmbientOcclusion(uniform RWTexture2DArray<float4> target, in uint2 xy, in uint k, in AmbientOcclusion surfaceAo)
+    #if defined(AO_R) || defined(AO_RW)
+    void DecodeAmbientOcclusion(in uint2 xy, in uint k, out AmbientOcclusion surfaceAo)
     {
-        EncodeFloat4InTexture2DArray(target, uint3(xy, k), AmbientOcclusionStep, float4(surfaceAo.BentNormal, surfaceAo.SpecularOcclusion));
+        surfaceAo.BentNormal = AmbientOcclusionTexture[uint3(xy, k)].xyz;
+        surfaceAo.SpecularOcclusion = AmbientOcclusionTexture[uint3(xy, k)].w;
     }
+    #endif
+
+/*
+ * Decode functions using texture sampling to ease reading interpolated or mipmapped values of textures.
+ * - Only define functions if corresponing (R)ead defines are set.
+ */
+
+    #ifdef ST_R
+    void DecodeSphereTracingData(in float2 uv, in float k, in float mipmap, out SphereTracingData surface)
+    {
+        float4 pm = SphereTracingDataTexture.SampleLevel(sampler_linear_clamp, float3(uv, k*3.0), mipmap);
+        surface.Position = pm.xyz;
+        surface.MaterialId = (int) pm.w;
+        float4 rdtd = SphereTracingDataTexture.SampleLevel(sampler_linear_clamp, float3(uv, k*3.0 + 1.0), mipmap);
+        surface.RayDirection = rdtd.xyz;
+        surface.TraceDistance = rdtd.w;
+        float4 na = SphereTracingDataTexture.SampleLevel(sampler_linear_clamp, float3(uv, k*3.0 + 2.0), mipmap);
+        surface.Normal = na.xyz;
+        surface.Alpha = na.w;
+    }
+    #endif
     
-//#else 
-
-
-void DecodeSurfaceData(uniform Texture2DArray<float4> target, in uint2 xy, in uint k, out SurfaceData surface)
-{
-    surface.Position = target[uint3(xy, k*3 + 0)].xyz;
-    surface.MaterialId = (int) target[uint3(xy, k*3 + 0)].w;
-    surface.RayDirection = target[uint3(xy, k*3 + 1)].xyz;
-    surface.TraceDistance = target[uint3(xy, k*3 + 1)].w;
-    surface.Normal = target[uint3(xy, k*3 + 2)].xyz;
-    surface.Alpha = target[uint3(xy, k*3 + 2)].w;
-}
-
-void DecodeSurfaceData(uniform Texture2DArray<float4> target, in float2 uv, in uint k, in int mipmap, out SurfaceData surface)
-{
-    float4 pm = target.SampleLevel(float3(uv, k*3), mipmap);
-    surface.Position = pm.xyz;
-    surface.MaterialId = (int) pm.w;
-    float4 rdtd = target.SampleLevel(float3(uv, k*3 + 1), mipmap);
-    surface.RayDirection = rdtd.xyz;
-    surface.TraceDistance = rdtd.w;
-    float4 na = target.SampleLevel(float3(uv, k*3 + 2), mipmap);
-    surface.Normal = na.xyz;
-    surface.Alpha = na.w;
-}
-
-void DecodeRay(uniform Texture2DArray<float4> target, in uint2 xy, in uint k, inout Ray r)
-{
-    r.Origin = target[uint3(xy, k*3 + 0)].xyz;
-    r.Direction = target[uint3(xy, k*3 + 1)].xyz;
-}
-
-float DecodeAlpha(uniform Texture2DArray<float4> target, in uint2 xy, in uint k)
-{
-    returntarget[uint3(xy, k*3 + 2)].w;
-}
-
-void DecodeAmbientOcclusion(uniform Texture2DArray<float4> target, in uint2 xy, in uint k, out AmbientOcclusion surfaceAo)
-{
-    surfaceAo.BentNormal = target[uint3(xy, k)].xyz;
-    surfaceAo.SpecularOcclusion = target[uint3(xy, k)].w;
-}
+    #ifdef AO_R
+    void DecodeAmbientOcclusionBilateral(in float2 uv, in float k, in float mipmap, out AmbientOcclusion surfaceAo)
+    {
+        float4 ao = AmbientOcclusionTexture.SampleLevel(sampler_linear_clamp, float3(uv, k), mipmap);
+        surfaceAo.BentNormal = ao.xyz;
+        surfaceAo.SpecularOcclusion = ao.w;
+    }
+    #endif
 
 AmbientOcclusion LerpAO(AmbientOcclusion ao0, AmbientOcclusion ao1, float t)
 {
@@ -83,9 +97,6 @@ AmbientOcclusion LerpAO(AmbientOcclusion ao0, AmbientOcclusion ao1, float t)
     ret.SpecularOcclusion = lerp(ao0.SpecularOcclusion, ao1.SpecularOcclusion, t);
     return ret;
 }
-
-//#endif
-
 
 
 #endif // DEFERREDLOGIC_INCLUDED
