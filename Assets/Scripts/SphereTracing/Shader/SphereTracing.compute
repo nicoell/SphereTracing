@@ -1,18 +1,28 @@
-﻿#pragma kernel CSMainHigh   DEFERRED_CREATE
-#pragma kernel CSMainMid    DEFERRED_CREATE
-#pragma kernel CSMainLow    DEFERRED_CREATE
+﻿#pragma kernel SphereTracingFPassH  DEFERRED_CREATE    F_PASS   HIGH
+#pragma kernel SphereTracingFPassM  DEFERRED_CREATE    F_PASS   MID
+#pragma kernel SphereTracingFPassL  DEFERRED_CREATE    F_PASS   LOW
 
-#define CSMainHighThreadsX 32
-#define CSMainHighThreadsY 20
-#define CSMainHighThreadsZ 1
+#pragma kernel SphereTracingKPassH  DEFERRED_CREATE    K_PASS   HIGH
+#pragma kernel SphereTracingKPassM  DEFERRED_CREATE    K_PASS   MID
+#pragma kernel SphereTracingKPassL  DEFERRED_CREATE    K_PASS   LOW
 
-#define CSMainMidThreadsX 16
-#define CSMainMidThreadsY 16
-#define CSMainMidThreadsZ 1
+#pragma kernel AmbientOcclusionH    DEFERRED_CREATE    AO       HIGH
+#pragma kernel AmbientOcclusionM    DEFERRED_CREATE    AO       MID
+#pragma kernel AmbientOcclusionL    DEFERRED_CREATE    AO       LOW
 
-#define CSMainLowThreadsX 8
-#define CSMainLowThreadsY 8
-#define CSMainLowThreadsZ 1
+#ifdef HIGH
+    #define ThreadsX 32
+    #define ThreadsY 20
+    #define ThreadsZ 1
+#elif MID
+    #define ThreadsX 16
+    #define ThreadsY 16
+    #define ThreadsZ 1
+#elif LOW
+    #define ThreadsX 8
+    #define ThreadsY 8
+    #define ThreadsZ 1
+#endif
 
 #include "Defines/SharedConstants.cginc"
 #include "Defines/Structs.cginc"
@@ -132,77 +142,135 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
     }
 }
 
-void EvaluateHit(in uint2 xy, in Ray r, in Hit hit, inout SurfaceData sd, inout AmbientOcclusion ao, inout float depth)
+void EvaluateHit(in uint2 xy, in Ray r, in Hit hit, inout SurfaceData sd)
 {
     sd.Position = hit.Position;
     sd.MaterialId = hit.MaterialId;
-    sd.Alpha = hit.Alpha;
-    depth = hit.TraceDistance;
+    sd.TraceDistance = hit.TraceDistance;
     if (sign(hit.MaterialId) >= 0)
     {
         sd.Normal = CalculateNormal(hit.Position);
-        if (ConsiderAmbientOcclusion(xy))
-        { 
-            if (EnableAmbientOcclusion)
-            {
-                ComputeAO(hit, r, sd.Normal, ao.BentNormal, ao.SpecularOcclusion);
-                ao.BentNormal = lerp(sd.Normal, ao.BentNormal, BentNormalFactor);
-            } else 
-            {
-                ao.BentNormal = (float3) 0;
-                ao.SpecularOcclusion = 0;
-            }
-        }
+        sd.RayDirection = r.Direction;
+        sd.Alpha *= hit.Alpha;
     }
     //if the background is hit
     else
     {
-        sd.Normal = r.Direction;
-        if (ConsiderAmbientOcclusion(xy))
-        {
-            ao.BentNormal = (float3) 0;
-            ao.SpecularOcclusion = 0;
-        }
+        sd.Normal = (float3) 0;
+        sd.RayDirection = r.Direction;
+        sd.Alpha *= hit.Alpha;
     }
 }
 
+
 void Main(uint3 id)
 {
-	//UVs on Screen
-	float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
-
-	//Struct containing everything needed for deferred rendering.
-	StUnion stUnion;
-
-	//Create Ray struct
-	Ray r;
-	r.Origin = CameraPos;
-    float4 rayDir = (lerp(
-        lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], uv.x),
-        lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], uv.x),
-        uv.y));
-    r.Direction = (mul(CameraInverseViewMatrix, rayDir).xyz);
-    r.uv = uv;
+    float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
+    
+	SurfaceData Surface;
+	SurfaceData Represent;
+	
+	#ifdef F_PASS
+	    Surface.Alpha = 1.0;
+	    Represent.Alpha = 1.0;
+	    //Create Ray through current Pixel
+	    Ray r;
+        r.uv = uv;
+        r.Origin = CameraPos;
+        float4 rayDir = (lerp(
+            lerp(CameraFrustumEdgeVectors[3], CameraFrustumEdgeVectors[2], uv.x),
+            lerp(CameraFrustumEdgeVectors[0], CameraFrustumEdgeVectors[1], uv.x),
+            uv.y));
+        r.Direction = (mul(CameraInverseViewMatrix, rayDir).xyz);
+	#elif K_PASS
+	    //Read SurfaceData from previuos pass
+	    DecodeSurfaceData(SurfaceDataTarget, id.xy, 0, Surface);
+	    DecodeSurfaceData(SurfaceDataTarget, id.xy, 1, Represent);
+	    //Do not calculate pass if neither surface nor represent alpha has an impact
+	    if (Surface.Alpha <= ALPHAEPSILON && Represent.Alpha <= ALPHAEPSILON) return;
+	    //Evaluate Material to calculate new Ray Direction
+	    
+	    /*
+	     * TODO: Handle the case if material is transparent and reflective.
+	     *          Maybe use ScreenSpace Reflections in this case and only follow transparent ray
+	     *          Or use the represent Surface for transparency/reflection since it is only needed for edges
+	     */
+	    
+	    surfaceMat = MaterialBuffer[Surface.MaterialId];
+	    representMat = MaterialBuffer[Represent.MaterialId];
+	    Surface.Alpha *= surfaceMat.ReflectiveF;
+	    Represent.Alpha *= representMat.ReflectiveF;
+	    //Test again if we need to calculate this pass
+	    if (Surface.Alpha <= ALPHAEPSILON && Represent.Alpha <= ALPHAEPSILON){
+	        //If not, we need to write the new alphas to texture before we stop
+	        EncodeSurfaceData(SurfaceDataTarget, id.xy, 0, Surface);
+	        EncodeSurfaceData(SurfaceDataTarget, id.xy, 1, Represent);
+	        return;
+	    }
+	    //We only follow one ray though, so we choose the one with greater visual impact
+	    Ray r;
+	    r.uv = uv;
+	    if (Surface.Alpha >= Represent.Alpha) {
+	        r.Origin = Surface.Position;
+	        r.Direction = Surface.RayDirection;
+	    else {
+	        r.Origin = Represent.Position;
+	        r.Direction = Represent.RayDirection;
+	    }
+	#endif
 
     Hit surfaceHit;
     Hit representHit;
     RayMarch(r, surfaceHit, representHit);
-    EvaluateHit(id.xy, r, surfaceHit, stUnion.Surface, stUnion.SurfaceAo, stUnion.SurfaceDepth);
-    EvaluateHit(id.xy, r, representHit, stUnion.Represent, stUnion.RepresentAo, stUnion.RepresentDepth);
+    EvaluateHit(id.xy, r, surfaceHit, Surface);
+    EvaluateHit(id.xy, r, representHit, Represent);
 
-    EncodeSurfaceData(SurfaceDataTarget, id.xy, 0, stUnion.Surface, stUnion.Represent);
-    if (ConsiderAmbientOcclusion(id.xy))
-        EncodeAmbientOcclusion(AmbientOcclusionTarget, id.xy, 0, stUnion.SurfaceAo, stUnion.RepresentAo);
-    EncodeDepth(DepthTarget, id.xy, 0, stUnion.SurfaceDepth, stUnion.RepresentDepth);
+    EncodeSurfaceData(SurfaceDataTarget, id.xy, 0, Surface);
+    EncodeSurfaceData(SurfaceDataTarget, id.xy, 1, Represent);
+}
+
+void CalcAO(uint3 id)
+{
+    float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
+    
+    SurfaceData Surface;
+	SurfaceData Represent;
+	AmbientOcclusion SurfaceAo;
+	AmbientOcclusion RepresentAo;
+    
+    //Read SurfaceData from surface and represent
+    DecodeSurfaceData(SurfaceDataTarget, uv, 0, 0, Surface);
+    DecodeSurfaceData(SurfaceDataTarget, uv, 1, 0, Represent);
+    //Do not calculate ao if neither surface nor represent alpha has an impact
+    if (Surface.Alpha <= ALPHAEPSILON && Represent.Alpha <= ALPHAEPSILON) return;
+    
+    ComputeAO(uv, Surface.Position, Surface.RayDirection, Surface.Normal, 
+        SurfaceAo.BentNormal, SurfaceAo.SpecularOcclusion);
+    ComputeAO(uv, Represent.Position, Represent.RayDirection, Represent.Normal, 
+        RepresentAo.BentNormal, RepresentAo.SpecularOcclusion);
+    
+    EncodeAmbientOcclusion(AmbientOcclusionTarget, id.xy, 0, SurfaceAo);
+    EncodeAmbientOcclusion(AmbientOcclusionTarget, id.xy, 1, RepresentAo);
 }
 
 
-[numthreads(CSMainHighThreadsX, CSMainHighThreadsY, CSMainHighThreadsZ)]
-void CSMainHigh (uint3 id : SV_DispatchThreadID) { Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingFPassH (uint3 id : SV_DispatchThreadID) { Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingFPassM (uint3 id : SV_DispatchThreadID) { Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingFPassL (uint3 id : SV_DispatchThreadID) { Main(id); }
 
-[numthreads(CSMainMidThreadsX, CSMainMidThreadsY, CSMainMidThreadsZ)]
-void CSMainMid (uint3 id : SV_DispatchThreadID) { Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingKPassH (uint3 id : SV_DispatchThreadID) { Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingKPassM (uint3 id : SV_DispatchThreadID) { Main(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingKPassL (uint3 id : SV_DispatchThreadID) { Main(id); }
 
-[numthreads(CSMainLowThreadsX, CSMainLowThreadsY, CSMainLowThreadsZ)]
-void CSMainLow (uint3 id : SV_DispatchThreadID) {  Main(id); }
-
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionH (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionM (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionL (uint3 id : SV_DispatchThreadID) { CalcAO(id); }

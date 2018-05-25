@@ -23,7 +23,7 @@
 
 float3 Background(in Ray r);
 
-float3 Shading(SurfaceData surface, AmbientOcclusion ao, float depth, bool enableAo)
+float3 Shading(SurfaceData surface, AmbientOcclusion ao)
 {
     float3 color = float3(.0, .0, .0);
     
@@ -34,16 +34,16 @@ float3 Shading(SurfaceData surface, AmbientOcclusion ao, float depth, bool enabl
 	float3 diffuseColor = float3(.0, .0, .0);
 	float3 specularColor = float3(.0, .0, .0);
 	
-	float3 bentNormal = enableAo ? ao.BentNormal : surface.Normal;
-	float specularOcclusion = enableAo ? ao.SpecularOcclusion : 1;
-	float diffuseOcclusion = enableAo ? pow(length(bentNormal), OcclusionExponent) : 1;
+	float3 bentNormal = EnableAmbientOcclusion ? ao.BentNormal : surface.Normal;
+	float specularOcclusion = EnableAmbientOcclusion ? ao.SpecularOcclusion : 1;
+	float diffuseOcclusion = EnableAmbientOcclusion ? pow(length(bentNormal), OcclusionExponent) : 1;
 	
 	int matId = (int) surface.MaterialId;
 	
 	if (sign(matId) >= 0){
         StMaterial mat = MaterialBuffer[matId];
         
-        if (enableAo && EnableGlobalIllumination){
+        if (EnableAmbientOcclusion && EnableGlobalIllumination){
             Ray aoRay;
             aoRay.Origin = float3(0,0,0);
             aoRay.Direction = bentNormal;
@@ -109,41 +109,49 @@ void Main(uint3 id)
 {
     float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
     
-    StUnion stUnion;
-    DecodeSurfaceData(SurfaceDataDeferred, id.xy, 0, stUnion.Surface, stUnion.Represent);
-    DecodeAmbientOcclusion(AmbientOcclusionDeferred, id.xy, 0, stUnion.SurfaceAo, stUnion.RepresentAo);
-    DecodeDepth(DepthDeferred, id.xy, 0, stUnion.SurfaceDepth, stUnion.RepresentDepth);
+    SurfaceData Surface;
+	SurfaceData Represent;
+	AmbientOcclusion SurfaceAo;
+	AmbientOcclusion RepresentAo;
     
-    float3 surfaceColor = (1 - stUnion.Represent.Alpha) * Shading(stUnion.Surface, stUnion.SurfaceAo, stUnion.SurfaceDepth, EnableAmbientOcclusion);
-    float3 representColor = stUnion.Represent.Alpha * Shading(stUnion.Represent, stUnion.RepresentAo, stUnion.RepresentDepth, EnableAmbientOcclusion);
+    DecodeSurfaceData(SurfaceDataDeferred, id.xy, 0, Surface);
+    DecodeSurfaceData(SurfaceDataDeferred, id.xy, 1, Represent);
+    if (EnableAmbientOcclusion) {
+        DecodeAmbientOcclusionBilateral(AmbientOcclusionDeferred, uv, 0, 0, SurfaceAo);
+        DecodeAmbientOcclusionBilateral(AmbientOcclusionDeferred, uv, 1, 0, RepresentAo);
+    } else {
+        //... Need to fill struct maybe
+    }
+    
+    float3 surfaceColor = (Surface.Alpha - Represent.Alpha) * Shading(Surface, SurfaceAo);
+    float3 representColor = Represent.Alpha * Shading(Represent, RepresentAo);
     
     float3 outputColor = surfaceColor + representColor;
     outputColor = pow( max(outputColor,0.0), GammaCorrection);
     
-    if (RenderOutput == 0) DeferredOutput[uint2(id.xy)] = float4(outputColor, 1);
-    else if (RenderOutput == 1) DeferredOutput[uint2(id.xy)] = float4(surfaceColor, 1);
-    else if (RenderOutput == 2) DeferredOutput[uint2(id.xy)] = float4(representColor, 1);
+    //TODO: if FirstPass DeferredOutput[uint2(id.xy)] = (float4) 0;
     
-    else if (RenderOutput == 3) DeferredOutput[uint2(id.xy)] = float4(stUnion.Surface.Position / ClippingPlanes.y, 1);
-    else if (RenderOutput == 4) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.Surface.MaterialId / MaterialCount, 1);
-    else if (RenderOutput == 5) DeferredOutput[uint2(id.xy)] = float4(stUnion.Surface.Normal, 1);
-    else if (RenderOutput == 6) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.Surface.Alpha, 1);
-    else if (RenderOutput == 7) DeferredOutput[uint2(id.xy)] = float4(stUnion.SurfaceAo.BentNormal, 1);
-    else if (RenderOutput == 8) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.SurfaceAo.SpecularOcclusion, 1);
-    else if (RenderOutput == 9) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.SurfaceDepth / ClippingPlanes.y, 1);
     
-    else if (RenderOutput == 10) DeferredOutput[uint2(id.xy)] = float4(stUnion.Represent.Position / ClippingPlanes.y, 1);
-    else if (RenderOutput == 11) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.Represent.MaterialId / MaterialCount, 1);
-    else if (RenderOutput == 12) DeferredOutput[uint2(id.xy)] = float4(stUnion.Represent.Normal, 1);
-    else if (RenderOutput == 13) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.Represent.Alpha, 1);
-    else if (RenderOutput == 14) DeferredOutput[uint2(id.xy)] = float4(stUnion.RepresentAo.BentNormal, 1);
-    else if (RenderOutput == 15) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.RepresentAo.SpecularOcclusion, 1);
-    else if (RenderOutput == 16) DeferredOutput[uint2(id.xy)] = float4((float3) stUnion.RepresentDepth/ ClippingPlanes.y, 1);
+    if (RenderOutput == 0) DeferredOutput[uint2(id.xy)] =      DeferredOutput[uint2(id.xy)] + float4(outputColor, 1);
+    else if (RenderOutput == 1) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(surfaceColor, 1);
+    else if (RenderOutput == 2) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(representColor, 1);
     
-    //DeferredOutput[uint2(id.xy)] = float4(surfaceColor.rgb, 1);
+    else if (RenderOutput == 3) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(Surface.Position / ClippingPlanes.y, 1);
+    else if (RenderOutput == 4) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) Surface.MaterialId / MaterialCount, 1);
+    else if (RenderOutput == 5) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(Surface.Normal, 1);
+    else if (RenderOutput == 6) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) Surface.Alpha, 1);
+    else if (RenderOutput == 7) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(SurfaceAo.BentNormal, 1);
+    else if (RenderOutput == 8) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) SurfaceAo.SpecularOcclusion, 1);
+    else if (RenderOutput == 9) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) SurfaceDepth / ClippingPlanes.y, 1);
     
-    //DeferredOutput[uint2(id.xy)] = float4(stUnion.Surface.Normal + stUnion.Represent.Alpha * stUnion.Represent.Normal, 1);
-
+    else if (RenderOutput == 10) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(Represent.Position / ClippingPlanes.y, 1);
+    else if (RenderOutput == 11) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) Represent.MaterialId / MaterialCount, 1);
+    else if (RenderOutput == 12) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(Represent.Normal, 1);
+    else if (RenderOutput == 13) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) Represent.Alpha, 1);
+    else if (RenderOutput == 14) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4(RepresentAo.BentNormal, 1);
+    else if (RenderOutput == 15) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) RepresentAo.SpecularOcclusion, 1);
+    else if (RenderOutput == 16) DeferredOutput[uint2(id.xy)] = DeferredOutput[uint2(id.xy)] + float4((float3) RepresentDepth/ ClippingPlanes.y, 1);
+    
 }
 
 [numthreads(CSMainHighThreadsX, CSMainHighThreadsY, CSMainHighThreadsZ)]

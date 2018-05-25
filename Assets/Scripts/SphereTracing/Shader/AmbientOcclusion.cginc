@@ -91,7 +91,7 @@ float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
     return minVisibility;
 }
 
-float3 ComputeBentNormal(in Hit hit, in Ray r, in float3 normal)
+float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
 {
     float3 tangent;
     float3 bitangent;
@@ -99,10 +99,10 @@ float3 ComputeBentNormal(in Hit hit, in Ray r, in float3 normal)
     
     float3 bentNormal = 0;
     Ray coneRay;
-    coneRay.Origin = hit.Position;
+    coneRay.Origin = pos;
     
     float tanConeAngle = tan((PI/4) / AmbientOcclusionSamples);             //TODO: Revisit
-    float rand = hash12(r.uv * 100.) * 2 * PI;
+    float rand = hash12(uv * 100.) * 2 * PI;
     
     for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
     {
@@ -121,16 +121,17 @@ float3 ComputeBentNormal(in Hit hit, in Ray r, in float3 normal)
     return bentNormal;
 }
 
-void ComputeAO(in Hit hit, in Ray r, in float3 normal, out float3 bentNormal, out float specularOcclusion)
+void ComputeAO(in float2 uv, in float3 pos, in float3 dir, in float3 normal, out float3 bentNormal, out float specularOcclusion)
 {
     //TODO: Improve ao factor computation
-    bentNormal = ComputeBentNormal(hit,r,normal);
+    bentNormal = ComputeBentNormal(uv,pos,normal);
+    bentNormal = lerp(normal, bentNormal, BentNormalFactor);
     float bentNormalLength = length(bentNormal);
     //TODO: use correct material data
     float reflectitveness = 0.5f;
     float reflectionConeAngle = max(reflectitveness, 0.1) * PI;
     float unoccludedAngle = bentNormalLength * PI * SpecularOcclusionStrength;
-    float angleBetween = acos(dot(bentNormal, reflect(r.Direction, normal) / max(bentNormalLength, 0.001)));
+    float angleBetween = acos(dot(bentNormal, reflect(dir, normal) / max(bentNormalLength, 0.001)));
     specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);
     specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
     //diffuseOcclusion = pow(bentNormalLength, OcclusionExponent);

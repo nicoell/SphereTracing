@@ -5,6 +5,8 @@ struct SurfaceData
 {
     float3 Position;
     float MaterialId;
+    float3 RayDirection;
+    float TraceDistance;
     float3 Normal;
     float Alpha;
 };
@@ -21,8 +23,8 @@ struct StUnion
 	SurfaceData Represent;
 	AmbientOcclusion SurfaceAo;
 	AmbientOcclusion RepresentAo;
-	float SurfaceDepth;
-	float RepresentDepth;
+	//float SurfaceDepth;
+	//float RepresentDepth;
 };
 
 struct Ray

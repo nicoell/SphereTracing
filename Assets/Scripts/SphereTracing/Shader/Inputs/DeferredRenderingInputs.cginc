@@ -1,9 +1,9 @@
 #ifndef DEFERREDRENDERINGINPUTS_INCLUDED
 #define DEFERREDRENDERINGINPUTS_INCLUDED
 
-int SurfaceDataStep;
-int DepthStep;
-int AmbientOcclusionStep;
+//int SurfaceDataStep;
+//int DepthStep;
+//int AmbientOcclusionStep;
 
 /*
  * All Textures with its dimension * k, used for reflections or transparency
@@ -35,25 +35,27 @@ int AmbientOcclusionStep;
     //Write into targets;
     RWTexture2DArray<float4> SurfaceDataTarget;
     RWTexture2DArray<float4> AmbientOcclusionTarget;
-    RWTexture2DArray<float> DepthTarget;
+    //RWTexture2DArray<float> DepthTarget;
 #elif DEFERRED_PROCESS
     //Read from targets, process and write in Deferred
     Texture2DArray<float4> SurfaceDataTarget;
     Texture2DArray<float4> AmbientOcclusionTarget;
-    Texture2DArray<float> DepthTarget;
+    //Texture2DArray<float> DepthTarget;
     
-    RWTexture2DArray<float4> SurfaceDataDeferred;
+    //RWTexture2DArray<float4> SurfaceDataDeferred;
     RWTexture2DArray<float4> AmbientOcclusionDeferred;
-    RWTexture2DArray<float> DepthDeferred;
+    //RWTexture2DArray<float> DepthDeferred;
 #elif DEFERRED_FINALIZE
     //Read from Deferred and write into Output
     Texture2DArray<float4> SurfaceDataDeferred;
     Texture2DArray<float4> AmbientOcclusionDeferred;
-    Texture2DArray<float> DepthDeferred;
-    SamplerState sampler_linear_clamp;
+    //Texture2DArray<float> DepthDeferred;
+    //SamplerState sampler_linear_clamp;
     
     RWTexture2D<float4> DeferredOutput;
 #endif
+
+SamplerState sampler_linear_clamp;
 
 
 #endif // DEFERREDRENDERINGINPUTS_INCLUDED
