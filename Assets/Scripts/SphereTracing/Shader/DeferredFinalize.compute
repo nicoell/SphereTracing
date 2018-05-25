@@ -20,18 +20,16 @@
 #include "Inputs/DeferredRenderingInputs.cginc"
 #include "Inputs/SharedInputs.cginc"
 #include "Defines/Structs.cginc"
+#include "Defines/SharedConstants.cginc"
 
 #include "DeferredLogic.cginc"
 
 float3 Background(in Ray r);
 
-float3 Shading(SphereTracingData surface, AmbientOcclusion ao)
+float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyColor)
 {
     float3 color = float3(.0, .0, .0);
-    
-    //Skip shading if alpha is too low
-    if (surface.Alpha <= 0.001) return color;
-    
+        
     float3 ambientColor = float3(.1, .1, .1);
 	float3 diffuseColor = float3(.0, .0, .0);
 	float3 specularColor = float3(.0, .0, .0);
@@ -46,6 +44,7 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao)
         StMaterial mat = MaterialBuffer[matId];
         
         if (EnableAmbientOcclusion && EnableGlobalIllumination){
+            //TODO: This is not how it works actually, need to review with physically based lightning
             Ray aoRay;
             aoRay.Origin = float3(0,0,0);
             aoRay.Direction = bentNormal;
@@ -99,7 +98,7 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao)
 	    Ray r;
 	    r.Origin = float3(0,0,0);
 	    r.Direction = surface.RayDirection;
-	    color = Background(r);
+	    skyColor += Background(r);
 	    
 	}
 	//Gamma correct colors
@@ -111,34 +110,47 @@ void Main(uint3 id)
 {
     float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
     
+    float3 skyColor = (float3) 0;
+    
+    //Surface Shading
     SphereTracingData Surface;
-	SphereTracingData Represent;
 	AmbientOcclusion SurfaceAo;
-	AmbientOcclusion RepresentAo;
+	SphereTracingData Represent;
+    AmbientOcclusion RepresentAo;
     
     DecodeSphereTracingData(id.xy, 0, Surface);
-    DecodeSphereTracingData(id.xy, 1, Represent);
-    if (EnableAmbientOcclusion) {
-        DecodeAmbientOcclusionBilateral(uv, 0, 0, SurfaceAo);
-        DecodeAmbientOcclusionBilateral(uv, 1, 0, RepresentAo);
-    } else {
-        //... Need to fill struct maybe
+	DecodeSphereTracingData(id.xy, 1, Represent);
+	
+    float3 surfaceColor = (float3) 0;
+    //Only do shading if Alpha is greater than some epsilon
+    if ((Surface.Alpha - Represent.Alpha) > ALPHAEPSILON) {
+        if (EnableAmbientOcclusion) DecodeAmbientOcclusionBilateral(uv, 0, 0, SurfaceAo);
+        surfaceColor = (Surface.Alpha - Represent.Alpha) * Shading(Surface, SurfaceAo, skyColor);
     }
     
-    float3 surfaceColor = (Surface.Alpha - Represent.Alpha) * Shading(Surface, SurfaceAo);
-    float3 representColor = Represent.Alpha * Shading(Represent, RepresentAo);
+    //Represent Shading
+    float3 representColor = (float3) 0;
+    //Only do shading if Alpha is greater than some epsilon
+    if (Represent.Alpha > ALPHAEPSILON) {
+        if (EnableAmbientOcclusion) DecodeAmbientOcclusionBilateral(uv, 1, 0, RepresentAo);
+        representColor = Represent.Alpha * Shading(Represent, RepresentAo, skyColor);
+    }
     
     float3 outputColor = surfaceColor + representColor;
     outputColor = pow( max(outputColor,0.0), GammaCorrection);
+    outputColor += skyColor; //Exclude sky from gamma correction
     
+    //Clear DeferredOutputTexture if this is the first pass.
     if (IsFirstPass) DeferredOutputTexture[uint2(id.xy)] = ClearColor;
     
-    
+    //Add Color on DeferredOutputTexture
     if (RenderOutput == 0) DeferredOutputTexture[uint2(id.xy)] =      DeferredOutputTexture[uint2(id.xy)] + float4(outputColor, 1);
+    
+    //Or draw some debug Outputs
+    //TODO: Probably need to rethink which of these values should be summed up in debug view and which not.
     else if (RenderOutput == 1) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(surfaceColor, 1);
     else if (RenderOutput == 2) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(representColor, 1);
-    
-    //TODO: Probably need to rethink which of these values should be summed up in debug view and which not.
+   
     else if (RenderOutput == 3) DeferredOutputTexture[uint2(id.xy)] = float4(Surface.Position / ClippingPlanes.y, 1);
     else if (RenderOutput == 4) DeferredOutputTexture[uint2(id.xy)] = float4((float3) Surface.MaterialId / MaterialCount, 1);
     else if (RenderOutput == 5) DeferredOutputTexture[uint2(id.xy)] = float4(Surface.RayDirection, 1);
