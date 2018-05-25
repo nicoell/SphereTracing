@@ -138,21 +138,26 @@ void Main(uint3 id)
     else if (RenderOutput == 1) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(surfaceColor, 1);
     else if (RenderOutput == 2) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(representColor, 1);
     
-    else if (RenderOutput == 3) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(Surface.Position / ClippingPlanes.y, 1);
-    else if (RenderOutput == 4) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Surface.MaterialId / MaterialCount, 1);
-    else if (RenderOutput == 5) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(Surface.Normal, 1);
-    else if (RenderOutput == 6) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Surface.Alpha, 1);
-    else if (RenderOutput == 7) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(SurfaceAo.BentNormal, 1);
-    else if (RenderOutput == 8) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) SurfaceAo.SpecularOcclusion, 1);
-    else if (RenderOutput == 9) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Surface.TraceDistance / ClippingPlanes.y, 1);
+    //TODO: Probably need to rethink which of these values should be summed up in debug view and which not.
+    else if (RenderOutput == 3) DeferredOutputTexture[uint2(id.xy)] = float4(Surface.Position / ClippingPlanes.y, 1);
+    else if (RenderOutput == 4) DeferredOutputTexture[uint2(id.xy)] = float4((float3) Surface.MaterialId / MaterialCount, 1);
+    else if (RenderOutput == 5) DeferredOutputTexture[uint2(id.xy)] = float4(Surface.RayDirection, 1);
+    else if (RenderOutput == 6) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Surface.TraceDistance / ClippingPlanes.y, 1);
+    else if (RenderOutput == 7) DeferredOutputTexture[uint2(id.xy)] = float4(Surface.Normal, 1);
+    else if (RenderOutput == 8) DeferredOutputTexture[uint2(id.xy)] = float4((float3) Surface.Alpha, 1);
+    else if (RenderOutput == 9) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(SurfaceAo.BentNormal, 1);
+    else if (RenderOutput == 10) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) length(SurfaceAo.BentNormal), 1);
+    else if (RenderOutput == 11) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) SurfaceAo.SpecularOcclusion, 1);
     
-    else if (RenderOutput == 10) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(Represent.Position / ClippingPlanes.y, 1);
-    else if (RenderOutput == 11) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Represent.MaterialId / MaterialCount, 1);
-    else if (RenderOutput == 12) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(Represent.Normal, 1);
-    else if (RenderOutput == 13) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Represent.Alpha, 1);
-    else if (RenderOutput == 14) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(RepresentAo.BentNormal, 1);
-    else if (RenderOutput == 15) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) RepresentAo.SpecularOcclusion, 1);
-    else if (RenderOutput == 16) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Represent.TraceDistance/ ClippingPlanes.y, 1);
+    else if (RenderOutput == 12) DeferredOutputTexture[uint2(id.xy)] = float4(Represent.Position / ClippingPlanes.y, 1);
+    else if (RenderOutput == 13) DeferredOutputTexture[uint2(id.xy)] = float4((float3) Represent.MaterialId / MaterialCount, 1);
+    else if (RenderOutput == 14) DeferredOutputTexture[uint2(id.xy)] = float4(Represent.RayDirection, 1);
+    else if (RenderOutput == 15) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) Represent.TraceDistance/ ClippingPlanes.y, 1);
+    else if (RenderOutput == 16) DeferredOutputTexture[uint2(id.xy)] = float4(Represent.Normal, 1);
+    else if (RenderOutput == 17) DeferredOutputTexture[uint2(id.xy)] = float4((float3) Represent.Alpha, 1);
+    else if (RenderOutput == 18) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4(RepresentAo.BentNormal, 1);
+    else if (RenderOutput == 19) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) length(RepresentAo.BentNormal), 1);
+    else if (RenderOutput == 20) DeferredOutputTexture[uint2(id.xy)] = DeferredOutputTexture[uint2(id.xy)] + float4((float3) RepresentAo.SpecularOcclusion, 1);
     
 }
 

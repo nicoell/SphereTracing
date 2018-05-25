@@ -173,7 +173,7 @@ MonoBehaviour:
   BentNormalFactor: 1
   EnableGlobalIllumination: 0
   AmbientOcclusionDrt:
-    InternalResolutionFactor: 0.5
+    InternalResolutionFactor: 0.125
   StMaterials:
   - {fileID: 11400000, guid: d4562ad213ac2e745947311169ee0846, type: 2}
   - {fileID: 11400000, guid: 51db7d2e4bd0c8d4e8062480961ee18c, type: 2}

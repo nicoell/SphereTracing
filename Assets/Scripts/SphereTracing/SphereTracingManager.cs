@@ -1,34 +1,40 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using SphereTracing.DeferredRendering;
 using SphereTracing.Lights;
 using SphereTracing.Materials;
 using UnityEngine;
-using UnityEngine.Experimental.UIElements;
 using UnityEngine.Rendering;
+
 
 namespace SphereTracing
 {
-
+	[SuppressMessage("ReSharper", "UnusedMember.Global")]
 	public enum RenderOutput
 	{
 		Color = 0,
-		SurfaceColor = 1, 
-		RepresentColor = 2,
-		SurfacePosition = 3,
-		SurfaceMaterialId = 4,
-		SurfaceNormal = 5,
-		SurfaceAlpha = 6,
-		SurfaceBentNormal = 7,
-		SurfaceSpecularOcclusion = 8,
-		SurfaceDepth = 9,
-		RepresentPosition = 10,
-		RepresentMaterialId = 11,
-		RepresentNormal = 12,
-		RepresentAlpha = 13,
-		RepresentBentNormal = 14,
-		RepresentSpecularOcclusion = 15,
-		RepresentDepth = 16
+		SurfaceColor, 
+		RepresentColor,
+		SurfacePosition,
+		SurfaceMaterialId,
+		SurfaceRayDirection,
+		SurfaceDepth,
+		SurfaceNormal,
+		SurfaceAlpha,
+		SurfaceBentNormal,
+		SurfaceDiffuseOcclusion,
+		SurfaceSpecularOcclusion,
+		RepresentPosition,
+		RepresentMaterialId,
+		RepresentRayDirection,
+		RepresentDepth,
+		RepresentNormal,
+		RepresentAlpha,
+		RepresentBentNormal,
+		RepresentDiffuseOcclusion,
+		RepresentSpecularOcclusion
+		
 	}
 	
 	public class SphereTracingManager : MonoBehaviour
