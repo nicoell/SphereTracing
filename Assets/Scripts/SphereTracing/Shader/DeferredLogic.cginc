@@ -79,15 +79,22 @@
         surface.Normal = na.xyz;
         surface.Alpha = na.w;
     }
+    float DecodeTraceDistance(in float2 uv, in float k, in float mipmap)
+    {
+        return SphereTracingDataTexture.SampleLevel(sampler_linear_clamp, float3(uv, k*3.0 + 1.0), mipmap).w;
+    }
     #endif
     
     #ifdef AO_R
-    void DecodeAmbientOcclusionBilateral(in float2 uv, in float k, in float mipmap, out AmbientOcclusion surfaceAo)
+    AmbientOcclusion DecodeAmbientOcclusion(in float2 uv, in float k, in float mipmap)
     {
         float4 ao = AmbientOcclusionTexture.SampleLevel(sampler_linear_clamp, float3(uv, k), mipmap);
-        surfaceAo.BentNormal = ao.xyz;
-        surfaceAo.SpecularOcclusion = ao.w;
+        AmbientOcclusion ret;
+        ret.BentNormal = ao.xyz;
+        ret.SpecularOcclusion = ao.w;
+        return ret;
     }
+
     #endif
 
 AmbientOcclusion LerpAO(AmbientOcclusion ao0, AmbientOcclusion ao1, float t)

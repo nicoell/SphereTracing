@@ -13,7 +13,10 @@ namespace SphereTracing.DeferredRendering
 		private string _textureName;
 		[NonSerialized]
 		public RenderTexture RenderTexture;
-		public int Step { get; private set; }
+		[NonSerialized]
+		public RenderTexture RenderTexture2;
+		//public int Step { get; private set; }
+		public float TargetMip { get ; private set; }
 
 		public bool IsDownScaled { get; private set; }
 
@@ -23,8 +26,10 @@ namespace SphereTracing.DeferredRendering
 		{
 			_textureName = textureName;
 			if (Math.Abs(InternalResolutionFactor - 1.0f) > 0.1f) IsDownScaled = true;
+
+			TargetMip = Mathf.Log(InternalResolutionFactor, 2);
+			//Step = Mathf.RoundToInt(1.0f / InternalResolutionFactor);
 			
-			Step = Mathf.RoundToInt(1.0f / InternalResolutionFactor);
 			Resolution = new Resolution
 			{
 				width = (int) Math.Floor(unscaledResolution.width * InternalResolutionFactor),
@@ -39,9 +44,19 @@ namespace SphereTracing.DeferredRendering
 				useMipMap = false,
 				dimension = dimension,
 				volumeDepth = volumeDepth
-				
 			};
 			RenderTexture.Create();
+			
+			RenderTexture2 = new RenderTexture(Resolution.width, Resolution.height, 0,
+				format, RenderTextureReadWrite.Linear)
+			{
+				name = _textureName, 
+				enableRandomWrite = true,
+				useMipMap = false,
+				dimension = dimension,
+				volumeDepth = volumeDepth
+			};
+			RenderTexture2.Create();
 		}
 	}
 }

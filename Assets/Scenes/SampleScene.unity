@@ -151,13 +151,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SphereTracingShader: {fileID: 7200000, guid: 50aef8ce42f6a024b893455bc10a19c6, type: 3}
-  UpscaleShader: {fileID: 7200000, guid: 71ad783c4a8247ff971876263ef03bbe, type: 3}
+  BilateralFilterShader: {fileID: 7200000, guid: 71ad783c4a8247ff971876263ef03bbe,
+    type: 3}
   DeferredShader: {fileID: 7200000, guid: ee9c665b7ba842b1ad6ca91d1cab0fd5, type: 3}
   UseCustomResolution: 1
   CustomResolution: {x: 1024, y: 768}
   ComputeShaderKernel: 2
   SphereTracingSteps: 1024
-  IterativeSteps: 3
+  IterativeSteps: 0
   RenderOutput: 0
   GammaCorrection: {x: 2, y: 2, z: 2}
   RadiusPixel: 0.003
@@ -172,8 +173,10 @@ MonoBehaviour:
   OcclusionExponent: 1
   BentNormalFactor: 1
   EnableGlobalIllumination: 0
+  EnableCrossBilateralFiltering: 0
+  RangeSigma: 0.0051
   AmbientOcclusionDrt:
-    InternalResolutionFactor: 0.125
+    InternalResolutionFactor: 0.5
   StMaterials:
   - {fileID: 11400000, guid: d4562ad213ac2e745947311169ee0846, type: 2}
   - {fileID: 11400000, guid: 51db7d2e4bd0c8d4e8062480961ee18c, type: 2}

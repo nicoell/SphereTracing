@@ -1,6 +1,8 @@
 #ifndef DEFERREDRENDERINGINPUTS_INCLUDED
 #define DEFERREDRENDERINGINPUTS_INCLUDED
 
+float AoTargetMip;
+
 //int SphereTracingDataStep;
 //int DepthStep;
 //int AmbientOcclusionStep;
