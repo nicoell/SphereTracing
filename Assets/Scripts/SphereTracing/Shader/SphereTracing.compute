@@ -122,6 +122,7 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
 	    
 	    //Test if we exceeded far clippingplane
 	    if (t > ClippingPlanes.y){
+	        surfaceHit.TraceDistance = ClippingPlanes.y;
 	        surfaceHit.MaterialId = -1;
 	        break;
 	    }

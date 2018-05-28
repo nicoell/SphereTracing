@@ -27,7 +27,7 @@ namespace SphereTracing.DeferredRendering
 			_textureName = textureName;
 			if (Math.Abs(InternalResolutionFactor - 1.0f) > 0.1f) IsDownScaled = true;
 
-			TargetMip = Mathf.Log(InternalResolutionFactor, 2);
+			TargetMip = -Mathf.Log(InternalResolutionFactor, 2);
 			//Step = Mathf.RoundToInt(1.0f / InternalResolutionFactor);
 			
 			Resolution = new Resolution
