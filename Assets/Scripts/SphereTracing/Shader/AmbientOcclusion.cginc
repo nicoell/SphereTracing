@@ -134,7 +134,6 @@ void ComputeAO(in float2 uv, in float3 pos, in float3 dir, in float3 normal, out
     float angleBetween = acos(dot(bentNormal, reflect(dir, normal) / max(bentNormalLength, 0.001)));
     specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);
     specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
-    //diffuseOcclusion = pow(bentNormalLength, OcclusionExponent);
 }
 
 #endif // AMBIENTOCCLUSION_INCLUDED
