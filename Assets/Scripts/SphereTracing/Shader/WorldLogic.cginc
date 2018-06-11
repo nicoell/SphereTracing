@@ -4,6 +4,7 @@
 
 #include "Utils/ImplicitBasics.cginc" 
 #include "Inputs/SharedInputs.cginc"
+#include "Defines/SharedConstants.cginc"
 
 //Definition of Material IDs
 #define MAT_RED 0
