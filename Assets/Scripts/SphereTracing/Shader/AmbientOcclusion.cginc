@@ -6,8 +6,6 @@
 #include "Inputs/SharedInputs.cginc"
 #include "Inputs/DeferredRenderingInputs.cginc"
 #include "Inputs/SphereTracingInputs.cginc"
-#include "Utils/ImplicitBasics.cginc" 
-#include "WorldLogic.cginc"
 #include "DeferredLogic.cginc"
 #include "WorldLogic.cginc"
 #include "Utils/Random.cginc"
@@ -121,15 +119,13 @@ float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
     return bentNormal;
 }
 
-void ComputeAO(in float2 uv, in float3 pos, in float3 dir, in float3 normal, out float3 bentNormal, out float specularOcclusion)
+void ComputeAO(in float2 uv, in float3 pos, in float3 dir, in float3 normal, in float reflectiveF, out float3 bentNormal, out float specularOcclusion)
 {
     //TODO: Improve ao factor computation
     bentNormal = ComputeBentNormal(uv,pos,normal);
     bentNormal = lerp(normal, bentNormal, BentNormalFactor);
     float bentNormalLength = length(bentNormal);
-    //TODO: use correct material data
-    float reflectitveness = 0.5f;
-    float reflectionConeAngle = max(reflectitveness, 0.1) * PI;
+    float reflectionConeAngle = max(reflectiveF, 0.1) * PI;
     float unoccludedAngle = bentNormalLength * PI * SpecularOcclusionStrength;
     float angleBetween = acos(dot(bentNormal, reflect(dir, normal) / max(bentNormalLength, 0.001)));
     specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);

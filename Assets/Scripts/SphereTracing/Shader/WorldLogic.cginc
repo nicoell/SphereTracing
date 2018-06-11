@@ -3,8 +3,7 @@
 
 
 #include "Utils/ImplicitBasics.cginc" 
-
-
+#include "Inputs/SharedInputs.cginc"
 
 //Definition of Material IDs
 #define MAT_RED 0
@@ -152,18 +151,5 @@ float2 Map(in float3 pos)
     res = opU(res, Sphere(pos, .2, float3(-5,7,-4), float3(0,0,0), MAT_GREEN));
 	return res;
 }
-
-#include "AmbientOcclusion.cginc"
-/*
-void EvaluateMaterial(inout Hit hit, in Ray r, in float3 normal)
-{
-	hit.Material = MaterialBuffer[hit.MaterialId];
-	
-	if (hit.Material.MaterialType == 0) {
-		hit.Normal = normal;
-	}
-}
-
-*/
 
 #endif // WORLDLOGIC_INCLUDED

@@ -85,7 +85,7 @@
     }
     #endif
     
-    #ifdef AO_R
+#ifdef AO_R
     AmbientOcclusion DecodeAmbientOcclusion(in float2 uv, in float k, in float mipmap)
     {
         float4 ao = AmbientOcclusionTexture.SampleLevel(sampler_linear_clamp, float3(uv, k), mipmap);
@@ -94,8 +94,70 @@
         ret.SpecularOcclusion = ao.w;
         return ret;
     }
+    
+    float NearestDepthThreshold;
+    
+    AmbientOcclusion DecodeAmbientOcclusionNearestDepth(in float2 uv, in float k, in float mipmap)
+    {
+        // Implements Nearest Depth Upsampling 
+        // http://developer.download.nvidia.com/assets/gamedev/files/sdk/11/OpacityMappingSDKWhitePaper.pdf
+        
+        const float depthThres = 2;
+        float2 dir = float2(1, 0);
+        float2 uvStepAo = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y);
+        
+        float2 uv00 = uv - 0.5 * uvStepAo;
+        float2 uv10 = uv00 + float2(uvStepAo.x, 0.0);
+        float2 uv01 = uv00 + float2(0.0, uvStepAo.y);
+        float2 uv11 = uv00 + uvStepAo;
+        
+        float d00 = DecodeTraceDistance(uv00, k, AoTargetMip);
+        float d10 = DecodeTraceDistance(uv10, k, AoTargetMip);
+        float d01 = DecodeTraceDistance(uv01, k, AoTargetMip);
+        float d11 = DecodeTraceDistance(uv11, k, AoTargetMip);
+        
+        float dfull = DecodeTraceDistance(uv, k, 0.0);
+        
+        float delta00 = abs(d00 - dfull);
+        float delta10 = abs(d10 - dfull);
+        float delta01 = abs(d01 - dfull);
+        float delta11 = abs(d11 - dfull);
+        
+        float4 ao;
+        
+        if (delta00 < NearestDepthThreshold && delta10 < NearestDepthThreshold &&
+            delta01 < NearestDepthThreshold && delta11 < NearestDepthThreshold)
+        {
+            ao = AmbientOcclusionTexture.SampleLevel(sampler_linear_clamp, float3(uv, k), mipmap);
+        } else 
+        {
+            float2 uvmin = uv;
+            float deltaMin = 9999999.0;
+            if (delta00 < deltaMin) {
+                deltaMin = delta00;
+                uvmin = uv00;
+            }
+            if (delta01 < deltaMin) {
+                deltaMin = delta01;
+                uvmin = uv01;
+            }
+            if (delta10 < deltaMin) {
+                deltaMin = delta10;
+                uvmin = uv10;
+            }
+            if (delta11 < deltaMin) {
+                deltaMin = delta11;
+                uvmin = uv11;
+            }
+            ao = AmbientOcclusionTexture.SampleLevel(sampler_point_clamp, float3(uvmin, k), mipmap);
+        }
+        AmbientOcclusion ret;
+        ret.BentNormal = ao.xyz;
+        ret.SpecularOcclusion = ao.w;
+        return ret;
+    }
 
-    #endif
+#endif
 
 AmbientOcclusion LerpAO(AmbientOcclusion ao0, AmbientOcclusion ao1, float t)
 {

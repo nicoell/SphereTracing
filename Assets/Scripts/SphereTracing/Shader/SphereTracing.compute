@@ -32,6 +32,7 @@
 #include "Utils/ImplicitBasics.cginc" 
 #include "WorldLogic.cginc"
 #include "DeferredLogic.cginc"
+#include "AmbientOcclusion.cginc"
 
 #ifndef AO
 
@@ -189,8 +190,7 @@ void Main(uint3 id)
         DecodeSphereTracingData(id.xy, 0, Surface);
         DecodeSphereTracingData(id.xy, 1, Represent);
         //Do not calculate pass if neither surface nor represent alpha has an impact
-        if (Surface.Alpha <= ALPHAEPSILON && Represent.Alpha <= ALPHAEPSILON) return;
-        
+        if (Surface.Alpha <= ALPHAEPSILON && Represent.Alpha <= ALPHAEPSILON) return;        
         
         /*
          * TODO: Handle transparent materials
@@ -204,6 +204,9 @@ void Main(uint3 id)
         StMaterial representMat = MaterialBuffer[Represent.MaterialId];
         Surface.Alpha *= surfaceMat.ReflectiveF;
         Represent.Alpha *= representMat.ReflectiveF;
+        
+        if (sign(Surface.MaterialId) < 0) Surface.Alpha = 0;
+        if (sign(Represent.MaterialId) < 0) Represent.Alpha = 0;
         //Test again if we need to calculate this pass
         if (Surface.Alpha <= ALPHAEPSILON && Represent.Alpha <= ALPHAEPSILON){
             //If not, we need to write the new alphas to texture before we stop
@@ -265,25 +268,27 @@ void CalcAO(uint3 id)
 	AmbientOcclusion RepresentAo;
     
     //Read SphereTracingData from surface and represent
-    DecodeSphereTracingData(uv, 0.0, 0.0, Surface);
-    DecodeSphereTracingData(uv, 1.0, 0.0, Represent);
+    DecodeSphereTracingData(uv, 0.0, 0, Surface);
+    DecodeSphereTracingData(uv, 1.0, 0, Represent);
     
     //Do not calculate ao if a surface' alpha doesn't have an impact
-    if (Surface.Alpha > ALPHAEPSILON) {
-        ComputeAO(uv, Surface.Position, Surface.RayDirection, Surface.Normal, 
+    if (sign(Surface.MaterialId) >= 0) {
+        StMaterial surfaceMat = MaterialBuffer[Surface.MaterialId];
+        ComputeAO(uv, Surface.Position, (Surface.RayDirection), normalize(Surface.Normal), surfaceMat.ReflectiveF,
             SurfaceAo.BentNormal, SurfaceAo.SpecularOcclusion);
     } else {
         SurfaceAo.BentNormal = (float3) 0;
         SurfaceAo.SpecularOcclusion = 0;
     }
     if (Represent.Alpha > ALPHAEPSILON) {
-        ComputeAO(uv, Represent.Position, Represent.RayDirection, Represent.Normal, 
+        StMaterial representMat = MaterialBuffer[Represent.MaterialId];
+        ComputeAO(uv, Represent.Position, Represent.RayDirection, Represent.Normal, representMat.ReflectiveF, 
             RepresentAo.BentNormal, RepresentAo.SpecularOcclusion);
     } else {
         RepresentAo.BentNormal = (float3) 0;
         RepresentAo.SpecularOcclusion = 0;
     }
-         
+             
     EncodeAmbientOcclusion(id.xy, 0, SurfaceAo);
     EncodeAmbientOcclusion(id.xy, 1, RepresentAo);
 }

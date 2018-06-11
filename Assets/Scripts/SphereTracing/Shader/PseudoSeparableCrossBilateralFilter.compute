@@ -44,8 +44,10 @@ void Main(uint3 id, float2 direction)
     float2 uvstep = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y) * direction;
     
     // Gaussian Kernel with sigma = 2
-    //const float[5] discreteOffsets = {0.0, 1.0, 2.0, 3.0, 4.0};
-    //const float[5] discreteWeights = {0.20236, 0.179044, 0.124009, 0.067234, 0.028532};
+    //const float discreteOffsets[5] = {0.0, 1.0, 2.0, 3.0, 4.0};
+    //const float discreteWeights[5] = {0.20236, 0.179044, 0.124009, 0.067234, 0.028532};
+    //float2 uvOffsets[5] = {discreteOffsets[0] * uvstep, discreteOffsets[1] * uvstep, discreteOffsets[2] * uvstep,
+    //    discreteOffsets[3] * uvstep, discreteOffsets[4] * uvstep};
     // See conversion from discete to linear:
     // http://rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
     const float linearOffsets[3] = {0.0,     1.4092,   3.29793};
@@ -55,17 +57,17 @@ void Main(uint3 id, float2 direction)
     float centerTraceDistance = DecodeTraceDistance(uv, id.z, AoTargetMip);
     AmbientOcclusion fAo = DecodeAmbientOcclusion(uv, id.z, 0.0);
     fAo.BentNormal *= linearWeights[0];
+    
     fAo.SpecularOcclusion *= linearWeights[0];
-    float weight = 0;
+    float weight = linearWeights[0];
     [unroll]
-    for (int i = 1; i <= FilterSize; i++) {
+    for (int i = 1; i < FilterSize; i++) {
         [unroll]
         for(int sign = -1; sign <= 1; sign += 2){
             float traceDistance = DecodeTraceDistance(uv + sign * uvOffsets[i], id.z, AoTargetMip);
             AmbientOcclusion ao = DecodeAmbientOcclusion(uv + sign * uvOffsets[i], id.z, 0.0);
             
             float delta = centerTraceDistance - traceDistance; //TraceDistance Delta
-            delta /= ClippingPlanes.y;
             float range = exp((-1.0 * delta * delta) / (2.0 * RangeSigma * RangeSigma));
             
             float rangeweight = linearWeights[i] * range;
@@ -77,8 +79,8 @@ void Main(uint3 id, float2 direction)
         }
     }
     
-    //fAo.BentNormal /= weight;
-    //fAo.SpecularOcclusion /= weight;
+    fAo.BentNormal /= weight;
+    fAo.SpecularOcclusion /= weight;
     
     AmbientOcclusionTarget[id] = float4(fAo.BentNormal, fAo.SpecularOcclusion);
 }
@@ -95,61 +97,3 @@ void AOVerticalH ( uint3 id : SV_DispatchThreadID) { Main(id, float2(0, 1)); }
 void AOVerticalM ( uint3 id : SV_DispatchThreadID) { Main(id, float2(0, 1)); }
 [numthreads(ThreadsX, ThreadsY, ThreadsZ)]
 void AOVerticalL ( uint3 id : SV_DispatchThreadID) { Main(id, float2(0, 1)); }
-
-/*struct AoBilateralData
-{
-    AmbientOcclusion Ao;
-    float TraceDistance;
-};
-
-//Create groupshared memory for group with padding of kernelsize
-groupshared AoBilateralData sBilateralDataH [(2*FilterSize)+ThreadsX][ThreadsY];
-groupshared AoBilateralData sBilateralDataV [ThreadsX][(2*FilterSize)+ThreadsY];
-
-float GetLinearWeight(float weightd1, float weightd2)
-{
-    return weightd1 + weightd2;
-}
-
-float GetLinearOffset(float offsetd1, float weightd1, float offsetd2, float weightd2)
-{
-    float weightL = GetLinearWeight(weightd1, weightd2);
-    return (offsetd1 * weightd1 + offsetd2 * weightd2) / weightL;
-}
-*/
-
-/*
-//Horizontal
-    int2 paddedGtid = int2(FilterSize + gtid.x, gtid.y);
-    //Vertical
-    //int2 paddedGtid = int2(gtid.x, FilterSize + gtid.y);
-    
-    //Load AoBilateralData(AmbientOcclusion and TraceDistance) for current pixels surface and Represent
-    AoBilateralData CenterData;
-    CenterData.Ao = DecodeAmbientOcclusion(uv, id.z, 0.0);
-    CenterData.TraceDistance = DecodeTraceDistance(uv, id.z, AoTargetMip);
-    
-    //Write AoBilateralData in groupshared memory (to prevent reading kernel data multiple times)
-    sBilateralDataH[paddedGtid.x][paddedGtid.y] = CenterData;
-    
-    if (gtid.x == 0) {
-        //Load AoBilateralData of pixels to the left
-        [unroll]
-        for(int i = 1; i <= FilterSize; i++) {
-            float2 uvOffset = int2(uvOffsets[i], 0);
-            sBilateralDataH[paddedGtid.x - i][paddedGtid.y].ao = DecodeAmbientOcclusion(uv - uvOffset, id.z, 0.0);
-            sBilateralDataH[paddedGtid.x - i][paddedGtid.y].TraceDistance = DecodeTraceDistance(uv - uvOffset, id.z, AoTargetMip);
-        }
-    } else if (gtid.x == ThreadsX - 1) {
-        //Load AoBilateralData of pixels to the right
-        [unroll]
-        for(int i = 1; i <= FilterSize; i++) {
-            float2 uvOffset = int2(uvOffsets[i], 0);
-            sBilateralDataH[paddedGtid.x + i][paddedGtid.y].ao = DecodeAmbientOcclusion(uv + uvOffset, id.z, 0.0);
-            sBilateralDataH[paddedGtid.x + i][paddedGtid.y].TraceDistance = DecodeTraceDistance(uv + uvOffset, id.z, AoTargetMip);
-        }
-    }
-    
-    //Blocks execution of all threads in a group until all group shared accesses have been completed and all threads in the group have reached this call.
-    GroupMemoryBarrierWithGroupSync();
-*/
