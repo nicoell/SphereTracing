@@ -1,16 +1,8 @@
 #ifndef WORLDLOGIC_INCLUDED
 #define WORLDLOGIC_INCLUDED
 
-#include "Defines/SharedConstants.cginc"
-#include "Defines/Structs.cginc"
-#include "Inputs/SharedInputs.cginc"
-#include "Inputs/DeferredRenderingInputs.cginc"
-#include "Inputs/SphereTracingInputs.cginc"
 #include "Utils/ImplicitBasics.cginc" 
-#include "WorldLogic.cginc"
-#include "DeferredLogic.cginc"
-
-
+#include "Inputs/SharedInputs.cginc"
 
 //Definition of Material IDs
 #define MAT_RED 0
@@ -71,9 +63,12 @@ float2 PlaneTest(in float3 pos)
  *      y: MaterialID of object in world.
  */
 float2 Map(in float3 pos)
-{
+{   
+    float2 a = SphereTest(pos, float3(8.0,1.0,-8.0), 2.0, MAT_RED);
+    float2 b = SphereTest(pos, float3(6.0,1.0,-8.0), 3.0, MAT_RED);
+
 	float2 res = opU(PlaneTest(pos),SphereTest(pos, float3(0.0,8.0,0.0), 6.0, MAT_RED));
-	res = opU(res, SphereTest(pos, float3(8.0,1.0,-8.0), 2.0, MAT_RED));
+	res = opU(res, opS(a, b));
 	res = opU(res, SphereTest(pos, float3(-8.0,1.0,-8.0), 2.0, MAT_BLUE));
 	res = opU(res, SphereTest(pos, float3(0.0,1.0,8.0), 2.0, MAT_GREEN));
 	res = opU(res, AOTorus(pos, MAT_FLOOR));
@@ -83,21 +78,5 @@ float2 Map(in float3 pos)
 	return res;
 }
 
-#include "AmbientOcclusion.cginc"
-/*
-void EvaluateMaterial(inout Hit hit, in Ray r, in float3 normal)
-{
-	hit.Material = MaterialBuffer[hit.MaterialId];
-	
-	if (hit.Material.MaterialType == 0) {
-		hit.Normal = normal;
-	}
-}
-
-*/
-float3 Shading(in Hit hit, in Ray r)
-{
-	return float3(0., 0., 0.);
-}
 
 #endif // WORLDLOGIC_INCLUDED

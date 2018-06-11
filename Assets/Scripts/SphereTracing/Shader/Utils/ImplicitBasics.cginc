@@ -97,7 +97,7 @@ float2 opU( float2 d1, float2 d2 )
 //Subtraction
 float2 opS( float2 d1, float2 d2 )
 {
-	return (-d1.x > d2.x) ? d1 : d2;
+	return (-d1.x > d2.x) ? float2(-d1.x, d1.y) : d2;
 }
 
 //Intersection
