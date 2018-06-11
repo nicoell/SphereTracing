@@ -97,7 +97,7 @@ float2 opU( float2 d1, float2 d2 )
 //Subtraction
 float2 opS( float2 d1, float2 d2 )
 {
-	return (-d1.x > d2.x) ? d1 : d2;
+	return (-d1.x > d2.x) ? float2(-d1.x, d1.y) : d2;
 }
 
 //Intersection
@@ -118,6 +118,11 @@ float3 opRep(float3 p, float3 c)
 float3 opTx(float3 p, float4x4 m)
 {
 	return mul(m, float4(p, 1)).xyz;
+}
+
+float3 opScale( float3 p, float s )
+{
+    return (p*s)/s;
 }
 
 //Domain Deformations

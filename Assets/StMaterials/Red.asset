@@ -16,4 +16,4 @@ MonoBehaviour:
     DiffuseColor: {r: 1, g: 0, b: 0, a: 0}
     SpecularColor: {r: 0.9791666, g: 1, b: 0.25, a: 0}
     Shininess: 16
-    ReflectiveF: 0
+    ReflectiveF: 0.049
