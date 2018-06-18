@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using SphereTracing.DeferredRendering;
 using SphereTracing.Lights;
@@ -10,34 +9,6 @@ using UnityEngine.Rendering;
 
 namespace SphereTracing
 {
-	[SuppressMessage("ReSharper", "UnusedMember.Global")]
-	public enum RenderOutput
-	{
-		Color = 0,
-		SurfaceColor, 
-		RepresentColor,
-		SurfacePosition,
-		SurfaceMaterialId,
-		SurfaceRayDirection,
-		SurfaceDepth,
-		SurfaceNormal,
-		SurfaceAlpha,
-		SurfaceBentNormal,
-		SurfaceDiffuseOcclusion,
-		SurfaceSpecularOcclusion,
-		RepresentPosition,
-		RepresentMaterialId,
-		RepresentRayDirection,
-		RepresentDepth,
-		RepresentNormal,
-		RepresentAlpha,
-		RepresentBentNormal,
-		RepresentDiffuseOcclusion,
-		RepresentSpecularOcclusion,
-		SurfaceLowResDepth
-		
-	}
-	
 	public class SphereTracingManager : MonoBehaviour
 	{
 		private ComputeKernel[] _sphereTracingFKernels;
