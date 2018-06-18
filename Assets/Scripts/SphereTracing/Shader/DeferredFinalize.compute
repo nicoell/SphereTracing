@@ -122,15 +122,15 @@ void Main(uint3 id)
 
     //DecodeSphereTracingData(id.xy, 0, Surface);
 	//DecodeSphereTracingData(id.xy, 1, Represent);
-    DecodeSphereTracingData(uv, 0, 0, Surface);
-	DecodeSphereTracingData(uv, 1, 0, Represent);
+    SampleSphereTracingData(uv, 0, Surface);
+	SampleSphereTracingData(uv, 1, Represent);
 	
-	float debugTraceDistance = DecodeTraceDistance(uv, 0, AoTargetMip);
+	float debugTraceDistance = DecodeTraceDistanceCheckerBoard(uv, 0);
 	
     float3 surfaceColor = (float3) 0;
     //Only do shading if Alpha is greater than some epsilon
     if ((Surface.Alpha) > ALPHAEPSILON) {
-        if (EnableAmbientOcclusion) SurfaceAo = DecodeAmbientOcclusionNearestDepth(uv, 0, 0);
+        if (EnableAmbientOcclusion) SurfaceAo = DecodeAmbientOcclusion(uv, 0);
         surfaceColor = Shading(Surface, SurfaceAo, surfaceSkyColor);
     }
     
@@ -138,7 +138,7 @@ void Main(uint3 id)
     float3 representColor = (float3) 0;
     //Only do shading if Alpha is greater than some epsilon
     if (Represent.Alpha > ALPHAEPSILON) {
-        if (EnableAmbientOcclusion) RepresentAo = DecodeAmbientOcclusionNearestDepth(uv, 1, 0);
+        if (EnableAmbientOcclusion) RepresentAo = DecodeAmbientOcclusion(uv, 1);
         representColor = Shading(Represent, RepresentAo, representSkyColor);
     }
     

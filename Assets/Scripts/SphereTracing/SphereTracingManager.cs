@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using SphereTracing.DeferredRendering;
@@ -50,6 +51,7 @@ namespace SphereTracing
 		private Resolution _targetResolution;
 		private RenderTexture _deferredOutput;
 		private RenderTexture _sphereTracingData;
+		private RenderTexture _downsampledSphereTracingData;
 		
 		#region PublicVariables Adjustable in Editor
 
@@ -138,7 +140,7 @@ namespace SphereTracing
 				RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
 			{
 				enableRandomWrite = true,
-				useMipMap = true,
+				useMipMap = false,
 				autoGenerateMips = false,
 				dimension = TextureDimension.Tex2DArray,
 				volumeDepth = 6
@@ -146,16 +148,16 @@ namespace SphereTracing
 			_sphereTracingData.Create();
 			
 			AmbientOcclusionDrt.Init("AmbientOcclusion", _targetResolution, RenderTextureFormat.ARGBFloat, TextureDimension.Tex2DArray, 2);
-
+			
 			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingFPassH",
 				"SphereTracingFPassM", "SphereTracingFPassL"); 
 			_sphereTracingKKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingKPassH",
 				"SphereTracingKPassM", "SphereTracingKPassL"); 
 			_sphereTracingAoKernels = InitComputeKernels(SphereTracingShader, AmbientOcclusionDrt.Resolution, 1, "AmbientOcclusionH",
 				"AmbientOcclusionM", "AmbientOcclusionL");
-			_horizontalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, AmbientOcclusionDrt.Resolution, 2,
+			_horizontalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2,
 				"AOHorizontalH", "AOHorizontalM", "AOHorizontalL");
-			_verticalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, AmbientOcclusionDrt.Resolution, 2,
+			_verticalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2,
 				"AOVerticalH", "AOVerticalM", "AOVerticalL");
 			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, 1, "DeferredH", "DeferredM", "DeferredL");
 			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, 1, "DeferredH", "DeferredM", "DeferredL");
@@ -206,7 +208,7 @@ namespace SphereTracing
 			foreach (var kernel in _deferredKernels)
 			{
 				DeferredShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
-				DeferredShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+				DeferredShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture3);
 				DeferredShader.SetTexture(kernel.Id, "DeferredOutputTexture", _deferredOutput);
 			}
 		}
@@ -232,7 +234,11 @@ namespace SphereTracing
 			Shader.SetGlobalVector("CameraDir", Camera.main.transform.forward);
 			Shader.SetGlobalVector("GammaCorrection", GammaCorrection);
 			Shader.SetGlobalColor("ClearColor", ClearColor);
-			Shader.SetGlobalVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
+			var cameraFrustumEdgeVectors = GetCameraFrustumEdgeVectors(Camera.main);
+			var angleX = Mathf.Acos(Vector4.Dot(cameraFrustumEdgeVectors[0], cameraFrustumEdgeVectors[1])) / _targetResolution.width;
+			var angleY = Mathf.Acos(Vector4.Dot(cameraFrustumEdgeVectors[0], cameraFrustumEdgeVectors[3])) / _targetResolution.height;
+			Shader.SetGlobalVectorArray("CameraFrustumEdgeVectors", cameraFrustumEdgeVectors);
+			Shader.SetGlobalVector("AngleBetweenRays", new Vector2(angleX, angleY));
 			Shader.SetGlobalMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
 			
 			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
@@ -246,18 +252,19 @@ namespace SphereTracing
 			}
 			
 		}
-		
-		// Update is called once per frame
-		private void Update()
-		{
-			UpdateStLights();
-			UpdateStMaterials();
-			SetShaderPropertiesPerFrame();
-			
 
-			//Do first SphereTracing step and write SphereTracingData into textures
-			_sphereTracingFKernels[ComputeShaderKernel].Dispatch();
-			_sphereTracingData.GenerateMips();
+		private void DispatchPass(bool isFirstPass)
+		{
+			if (isFirstPass)
+			{
+				//Do first SphereTracing step and write SphereTracingData into textures
+				_sphereTracingFKernels[ComputeShaderKernel].Dispatch();
+			} else
+			{
+				//Do kPass SphereTracing step and write SphereTracingData into textures
+				_sphereTracingKKernels[ComputeShaderKernel].Dispatch();
+			}
+			//_sphereTracingData.GenerateMips();
 			
 			//If ambient occlusion is enabled, calculate AO next
 			if (EnableAmbientOcclusion)
@@ -272,7 +279,7 @@ namespace SphereTracing
 						//Filter AO Texture
 						//Bind textures to read and write and do horizontal filtering
 						BilateralFilterShader.SetTexture(_horizontalBilateralFilterKernels[ComputeShaderKernel].Id,
-							"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+							"AmbientOcclusionTexture", i == 0 ? AmbientOcclusionDrt.RenderTexture : AmbientOcclusionDrt.RenderTexture3);
 						BilateralFilterShader.SetTexture(_horizontalBilateralFilterKernels[ComputeShaderKernel].Id,
 							"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
 						_horizontalBilateralFilterKernels[ComputeShaderKernel].Dispatch();
@@ -280,52 +287,31 @@ namespace SphereTracing
 						BilateralFilterShader.SetTexture(_verticalBilateralFilterKernels[ComputeShaderKernel].Id,
 							"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
 						BilateralFilterShader.SetTexture(_verticalBilateralFilterKernels[ComputeShaderKernel].Id,
-							"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture);
+							"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture3);
 						_verticalBilateralFilterKernels[ComputeShaderKernel].Dispatch();
 					}
 				}
 			}
 			
-			DeferredShader.SetBool("IsFirstPass", true);
+			DeferredShader.SetBool("IsFirstPass", isFirstPass);
 			//Deferred Rendering step to calculate lightning and finalize image
 			_deferredKernels[ComputeShaderKernel].Dispatch();
 			
-			DeferredShader.SetBool("IsFirstPass", false);
+		}
+		
+		// Update is called once per frame
+		private void Update()
+		{
+			UpdateStLights();
+			UpdateStMaterials();
+			SetShaderPropertiesPerFrame();
+
+			DispatchPass(true);
+
 			for (int iterativeStep = 0; iterativeStep < IterativeSteps; iterativeStep++)
 			{
 				//Perform iterative steps for transparency and reflections
-				//Do kPass SphereTracing step and write SphereTracingData into textures
-				_sphereTracingKKernels[ComputeShaderKernel].Dispatch();
-				_sphereTracingData.GenerateMips();
-				
-				//If ambient occlusion is enabled, calculate AO next
-				if (EnableAmbientOcclusion)
-				{
-					//Calculate AO and write in AmbientOcclusionDrt.RenderTexture
-					_sphereTracingAoKernels[ComputeShaderKernel].Dispatch();
-
-					if (EnableCrossBilateralFiltering)
-					{
-						for (int i = 0; i < FilterSteps; i++)
-						{
-							//Filter AO Texture
-							//Bind textures to read and write and do horizontal filtering
-							BilateralFilterShader.SetTexture(_horizontalBilateralFilterKernels[ComputeShaderKernel].Id,
-								"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
-							BilateralFilterShader.SetTexture(_horizontalBilateralFilterKernels[ComputeShaderKernel].Id,
-								"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
-							_horizontalBilateralFilterKernels[ComputeShaderKernel].Dispatch();
-							//Swap textures and do vertical filtering
-							BilateralFilterShader.SetTexture(_verticalBilateralFilterKernels[ComputeShaderKernel].Id,
-								"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
-							BilateralFilterShader.SetTexture(_verticalBilateralFilterKernels[ComputeShaderKernel].Id,
-								"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture);
-							_verticalBilateralFilterKernels[ComputeShaderKernel].Dispatch();
-						}
-					}
-				}
-				//Deferred Rendering step to calculate lightning and finalize image
-				_deferredKernels[ComputeShaderKernel].Dispatch();
+				DispatchPass(false);
 			}
 
 		}

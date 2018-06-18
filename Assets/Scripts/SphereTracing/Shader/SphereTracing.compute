@@ -261,15 +261,15 @@ void SphereTracingKPassL (uint3 id : SV_DispatchThreadID) { Main(id); }
 void CalcAO(uint3 id)
 {
     float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
-    
+        
     SphereTracingData Surface;
 	SphereTracingData Represent;
 	AmbientOcclusion SurfaceAo;
 	AmbientOcclusion RepresentAo;
     
     //Read SphereTracingData from surface and represent
-    DecodeSphereTracingData(uv, 0.0, 0, Surface);
-    DecodeSphereTracingData(uv, 1.0, 0, Represent);
+    DecodeSphereTracingDataCheckerBoard(uv, 0.0, Surface);
+    DecodeSphereTracingDataCheckerBoard(uv, 1.0, Represent);
     
     //Do not calculate ao if a surface' alpha doesn't have an impact
     if (sign(Surface.MaterialId) >= 0) {

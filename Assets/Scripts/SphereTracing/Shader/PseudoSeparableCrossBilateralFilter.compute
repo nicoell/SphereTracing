@@ -40,8 +40,9 @@ RWTexture2DArray<float4> AmbientOcclusionTarget;
 
 void Main(uint3 id, float2 direction)
 {
-    float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
-    float2 uvstep = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y) * direction;
+    float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
+    float2 uvstep = float2(1.0 / Resolution.x, 1.0 / Resolution.y) * direction;
+    float2 uvstepao = float2(0.5 / AoResolution.x, 0.5 / AoResolution.y) * direction;
     
     // Gaussian Kernel with sigma = 2
     //const float discreteOffsets[5] = {0.0, 1.0, 2.0, 3.0, 4.0};
@@ -53,9 +54,11 @@ void Main(uint3 id, float2 direction)
     const float linearOffsets[3] = {0.0,     1.4092,   3.29793};
     const float linearWeights[3] = {0.20236, 0.303053, 0.095766};
     float2 uvOffsets[3] = {float2(0, 0), linearOffsets[1] * uvstep, linearOffsets[2] * uvstep};
+    float2 uvOffsetsAo[3] = {float2(0, 0), linearOffsets[1] * uvstepao, linearOffsets[2] * uvstepao};
     
-    float centerTraceDistance = DecodeTraceDistance(uv, id.z, AoTargetMip);
-    AmbientOcclusion fAo = DecodeAmbientOcclusion(uv, id.z, 0.0);
+    float centerTraceDistance = DecodeTraceDistance(uv, id.z);
+    float3 centerNormal = DecodeNormal(uv, id.z);
+    AmbientOcclusion fAo = DecodeAmbientOcclusion(uv, id.z);
     fAo.BentNormal *= linearWeights[0];
     
     fAo.SpecularOcclusion *= linearWeights[0];
@@ -64,10 +67,12 @@ void Main(uint3 id, float2 direction)
     for (int i = 1; i < FilterSize; i++) {
         [unroll]
         for(int sign = -1; sign <= 1; sign += 2){
-            float traceDistance = DecodeTraceDistance(uv + sign * uvOffsets[i], id.z, AoTargetMip);
-            AmbientOcclusion ao = DecodeAmbientOcclusion(uv + sign * uvOffsets[i], id.z, 0.0);
+            float traceDistance = DecodeTraceDistanceCheckerBoard(uv + sign * uvOffsetsAo[i], id.z);
+            float3 normal = DecodeNormal(uv + sign * uvOffsetsAo[i], id.z);
+            AmbientOcclusion ao = DecodeAmbientOcclusionCheckerBoard(uv + sign * uvOffsetsAo[i], id.z);
             
             float delta = centerTraceDistance - traceDistance; //TraceDistance Delta
+            //delta *= pow(dot(normal, centerNormal);
             float range = exp((-1.0 * delta * delta) / (2.0 * RangeSigma * RangeSigma));
             
             float rangeweight = linearWeights[i] * range;

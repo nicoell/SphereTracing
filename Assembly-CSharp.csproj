@@ -54,7 +54,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\SphereTracing\DeferredRendering\DeferredRenderTarget.cs" />
-    <Compile Include="Assets\Scripts\SphereTracing\DeferredRendering\InternalResolutionFactor.cs" />
     <Compile Include="Assets\Scripts\SphereTracing\Lights\DirectionalLight.cs" />
     <Compile Include="Assets\Scripts\SphereTracing\Lights\PointLight.cs" />
     <Compile Include="Assets\Scripts\SphereTracing\Lights\StLight.cs" />
@@ -63,8 +62,8 @@
     <Compile Include="Assets\Scripts\SphereTracing\SphereTracingManager.cs" />
     <Compile Include="Assets\Scripts\Utils\FreeRoamCamera.cs" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Inputs\DeferredFinalizeInputs.cginc" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\Utils\Filtering.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\DeferredLogic.cginc" />
-    <None Include="Assets\Scripts\SphereTracing\Shader\Inputs\DeferredProcessInputs.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Utils\ImplicitBasics.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Utils\Random.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Defines\Structs.cginc" />
@@ -73,15 +72,15 @@
     <None Include="Assets\Scripts\SphereTracing\Shader\Inputs\SphereTracingInputs.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\DeferredFinalize.compute" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Inputs\DeferredRenderingInputs.cginc" />
-    <None Include="Assets\Scripts\SphereTracing\Shader\DeferredProcess.compute" />
+    <None Include="Assets\Scripts\SphereTracing\Shader\PseudoSeparableCrossBilateralFilter.compute" />
     <None Include="Assets\Scripts\SphereTracing\Shader\AmbientOcclusion.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\Inputs\SharedInputs.cginc" />
     <None Include="Assets\Scripts\SphereTracing\Shader\SphereTracing.compute" />
     <Reference Include="UnityEditor.StandardEvents">
-      <HintPath>D:/Dokumente/Projekte/GitHub/SphereTracing/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>
+      <HintPath>D:/Documents/GitHub/SphereTracing/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>
     </Reference>
     <Reference Include="Unity.PackageManagerUI.Editor">
-      <HintPath>D:/Dokumente/Projekte/GitHub/SphereTracing/Library/ScriptAssemblies/Unity.PackageManagerUI.Editor.dll</HintPath>
+      <HintPath>D:/Documents/GitHub/SphereTracing/Library/ScriptAssemblies/Unity.PackageManagerUI.Editor.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AIModule">
       <HintPath>C:/Program Files/Unity/Hub/Editor/2018.1.1f1/Editor/Data/Managed/UnityEngine/UnityEngine.AIModule.dll</HintPath>
@@ -279,13 +278,13 @@
       <HintPath>C:/Program Files/Unity/Hub/Editor/2018.1.1f1/Editor/Data/UnityExtensions/Unity/UnitySpatialTracking/RuntimeEditor/UnityEngine.SpatialTracking.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.Analytics">
-      <HintPath>C:/Users/Nico Ell/AppData/Local/Unity/cache/packages/packages.unity.com/com.unity.analytics@2.0.16/UnityEngine.Analytics.dll</HintPath>
+      <HintPath>C:/Users/morph/AppData/Local/Unity/cache/packages/packages.unity.com/com.unity.analytics@2.0.16/UnityEngine.Analytics.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.Purchasing">
-      <HintPath>C:/Users/Nico Ell/AppData/Local/Unity/cache/packages/packages.unity.com/com.unity.purchasing@2.0.1/UnityEngine.Purchasing.dll</HintPath>
+      <HintPath>C:/Users/morph/AppData/Local/Unity/cache/packages/packages.unity.com/com.unity.purchasing@2.0.1/UnityEngine.Purchasing.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.StandardEvents">
-      <HintPath>C:/Users/Nico Ell/AppData/Local/Unity/cache/packages/packages.unity.com/com.unity.standardevents@1.0.13/UnityEngine.StandardEvents.dll</HintPath>
+      <HintPath>C:/Users/morph/AppData/Local/Unity/cache/packages/packages.unity.com/com.unity.standardevents@1.0.13/UnityEngine.StandardEvents.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib">
       <HintPath>C:/Program Files/Unity/Hub/Editor/2018.1.1f1/Editor/Data/MonoBleedingEdge/lib/mono/unity/mscorlib.dll</HintPath>

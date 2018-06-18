@@ -15,6 +15,8 @@ namespace SphereTracing.DeferredRendering
 		public RenderTexture RenderTexture;
 		[NonSerialized]
 		public RenderTexture RenderTexture2;
+		[NonSerialized]
+		public RenderTexture RenderTexture3;
 		//public int Step { get; private set; }
 		public float TargetMip { get ; private set; }
 
@@ -47,7 +49,7 @@ namespace SphereTracing.DeferredRendering
 			};
 			RenderTexture.Create();
 			
-			RenderTexture2 = new RenderTexture(Resolution.width, Resolution.height, 0,
+			RenderTexture2 = new RenderTexture(unscaledResolution.width, unscaledResolution.height, 0,
 				format, RenderTextureReadWrite.Linear)
 			{
 				name = _textureName, 
@@ -57,6 +59,17 @@ namespace SphereTracing.DeferredRendering
 				volumeDepth = volumeDepth
 			};
 			RenderTexture2.Create();
+			
+			RenderTexture3 = new RenderTexture(unscaledResolution.width, unscaledResolution.height, 0,
+				format, RenderTextureReadWrite.Linear)
+			{
+				name = _textureName, 
+				enableRandomWrite = true,
+				useMipMap = false,
+				dimension = dimension,
+				volumeDepth = volumeDepth
+			};
+			RenderTexture3.Create();
 		}
 	}
 }

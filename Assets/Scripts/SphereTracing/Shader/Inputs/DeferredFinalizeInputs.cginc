@@ -8,11 +8,8 @@ int RenderOutput;
 bool IsFirstPass;
 float4 ClearColor;
 
-bool EnableAmbientOcclusion;
-bool EnableGlobalIllumination;
 
-StructuredBuffer<StMaterial> MaterialBuffer;
-int MaterialCount;
+
 StructuredBuffer<StLight> LightBuffer;
 int LightCount;
 
