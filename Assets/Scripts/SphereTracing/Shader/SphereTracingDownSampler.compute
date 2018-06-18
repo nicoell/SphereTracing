@@ -1,0 +1,45 @@
+﻿#pragma kernel SphereTracingDownSampleH    ST_R    HIGH
+#pragma kernel SphereTracingDownSampleM    ST_R    MID
+#pragma kernel SphereTracingDownSampleL    ST_R    LOW
+
+
+#ifdef HIGH
+    #define ThreadsX 32
+    #define ThreadsY 20
+    #define ThreadsZ 1
+#elif MID
+    #define ThreadsX 16
+    #define ThreadsY 16
+    #define ThreadsZ 1
+#elif LOW
+    #define ThreadsX 8
+    #define ThreadsY 8
+    #define ThreadsZ 1
+#endif
+
+#define ThreadsXY ThreadsX * ThreadsY
+
+#include "Inputs/DeferredRenderingInputs.cginc"
+#include "Inputs/SharedInputs.cginc"
+#include "Defines/Structs.cginc"
+
+#include "DeferredLogic.cginc"
+
+
+RWTexture2DArray<float4> SphereTracingDataLow;
+
+void Main(uint3 id, float2 direction)
+{
+    float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
+    float2 uvstep = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y) * direction;
+
+    
+    SphereTracingDataLow[id] = float4(0.0,0.0,0.0,0.0);
+}
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingDownSampleH ( uint3 id : SV_DispatchThreadID) { Main(id, float2(1, 0)); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingDownSampleM ( uint3 id : SV_DispatchThreadID) { Main(id, float2(1, 0)); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingDownSampleL ( uint3 id : SV_DispatchThreadID) { Main(id, float2(1, 0)); }

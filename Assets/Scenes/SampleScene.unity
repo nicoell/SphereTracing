@@ -113,6 +113,50 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &227377065
+GameObject:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  serializedVersion: 5
+  m_Component:
+  - component: {fileID: 227377067}
+  - component: {fileID: 227377066}
+  m_Layer: 0
+  m_Name: Point Light 2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &227377066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 227377065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4d48695a7eb49138a021929ea1697ca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsActive: 0
+  SphereTracingManager: {fileID: 282840812}
+  LightColor: {r: 1, g: 0.273241, b: 0.23113209, a: 1}
+  LightPower: 2
+--- !u!4 &227377067
+Transform:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 227377065}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2, y: -7, z: 3.9}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &282840810
 GameObject:
   m_ObjectHideFlags: 0
@@ -155,17 +199,17 @@ MonoBehaviour:
     type: 3}
   DeferredShader: {fileID: 7200000, guid: ee9c665b7ba842b1ad6ca91d1cab0fd5, type: 3}
   UseCustomResolution: 1
-  CustomResolution: {x: 1280, y: 1024}
+  CustomResolution: {x: 1024, y: 768}
   ComputeShaderKernel: 2
-  SphereTracingSteps: 1024
-  IterativeSteps: 0
-  RenderOutput: 10
+  SphereTracingSteps: 297
+  IterativeSteps: 1
+  RenderOutput: 0
   GammaCorrection: {x: 2, y: 2, z: 2}
   RadiusPixel: 0.003
   EnableSuperSampling: 0
-  LightCount: 2
+  LightCount: 3
   ClearColor: {r: 0, g: 0, b: 0, a: 1}
-  EnableAmbientOcclusion: 1
+  EnableAmbientOcclusion: 0
   AmbientOcclusionSamples: 9
   AmbientOcclusionSteps: 14
   AmbientOcclusionMaxDistance: 2
@@ -289,13 +333,13 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1114993625}
-  m_LocalRotation: {x: -0.19047663, y: 0.21394148, z: 0.042575087, w: 0.95714945}
+  m_LocalRotation: {x: -0.15987875, y: 0.56254554, z: 0.11194828, w: 0.8033984}
   m_LocalPosition: {x: 5.224, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 2
-  m_LocalEulerAnglesHint: {x: -22.51, y: 25.199001, z: 0}
+  m_LocalEulerAnglesHint: {x: -22.51, y: 70, z: 0}
 --- !u!1 &2086221646
 GameObject:
   m_ObjectHideFlags: 0
@@ -311,7 +355,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &2086221647
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -334,7 +378,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 2086221646}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 3, y: -7, z: 3.9}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}

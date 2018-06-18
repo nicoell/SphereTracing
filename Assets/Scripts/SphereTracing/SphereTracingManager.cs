@@ -42,14 +42,18 @@ namespace SphereTracing
 	{
 		private ComputeKernel[] _sphereTracingFKernels;
 		private ComputeKernel[] _sphereTracingKKernels;
+		private ComputeKernel[] _sphereTracingDownSamplerKernels;
 		private ComputeKernel[] _sphereTracingAoKernels;
+		private ComputeKernel[] _sphereTracingAoUpSamplerKernels;
 		private ComputeKernel[] _horizontalBilateralFilterKernels;
 		private ComputeKernel[] _verticalBilateralFilterKernels;
 		private ComputeKernel[] _deferredKernels;
 		private int _prevComputeKernel;
 		private Resolution _targetResolution;
+		private Resolution _lowResolution;
 		private RenderTexture _deferredOutput;
 		private RenderTexture _sphereTracingData;
+		private RenderTexture _sphereTracingDataLow;
 		
 		#region PublicVariables Adjustable in Editor
 
@@ -57,7 +61,9 @@ namespace SphereTracing
 		public ComputeShader SphereTracingShader;
 		public ComputeShader BilateralFilterShader;
 		public ComputeShader DeferredShader;
-		
+		public ComputeShader SphereTracingDownSampler;
+		public ComputeShader AmbientOcclusionUpSampler;
+
 		[Header("Resolution")]
 		public bool UseCustomResolution;
 		public Vector2Int CustomResolution;
@@ -124,8 +130,10 @@ namespace SphereTracing
 					height = CustomResolution.y
 				};
 			else _targetResolution = Screen.currentResolution;
-			
-			
+
+			AmbientOcclusionDrt.Init("AmbientOcclusion", _targetResolution, RenderTextureFormat.ARGBFloat, TextureDimension.Tex2DArray, 2);
+			_lowResolution = AmbientOcclusionDrt.Resolution;
+
 			// Create Render Texture
 			_deferredOutput = new RenderTexture(_targetResolution.width, _targetResolution.height, 0,
 				RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
@@ -138,24 +146,38 @@ namespace SphereTracing
 				RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
 			{
 				enableRandomWrite = true,
-				useMipMap = true,
+				useMipMap = false,
 				autoGenerateMips = false,
 				dimension = TextureDimension.Tex2DArray,
 				volumeDepth = 6
 			};
 			_sphereTracingData.Create();
-			
-			AmbientOcclusionDrt.Init("AmbientOcclusion", _targetResolution, RenderTextureFormat.ARGBFloat, TextureDimension.Tex2DArray, 2);
+
+			_sphereTracingDataLow = new RenderTexture(_lowResolution.width, _lowResolution.height, 0,
+                RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
+            {
+                enableRandomWrite = true,
+                useMipMap = false,
+                autoGenerateMips = false,
+                dimension = TextureDimension.Tex2DArray,
+                volumeDepth = 6
+            };
+            _sphereTracingData.Create();
+            
 
 			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingFPassH",
 				"SphereTracingFPassM", "SphereTracingFPassL"); 
 			_sphereTracingKKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingKPassH",
 				"SphereTracingKPassM", "SphereTracingKPassL"); 
+			_sphereTracingDownSamplerKernels = InitComputeKernels(SphereTracingDownSampler, _lowResolution, 1, "SphereTracingDownSampleH",
+			    "SphereTracingDownSampleM", "SphereTracingDownSampleL"); 
 			_sphereTracingAoKernels = InitComputeKernels(SphereTracingShader, AmbientOcclusionDrt.Resolution, 1, "AmbientOcclusionH",
 				"AmbientOcclusionM", "AmbientOcclusionL");
-			_horizontalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, AmbientOcclusionDrt.Resolution, 2,
+			_sphereTracingAoUpSamplerKernels = InitComputeKernels(AmbientOcclusionUpSampler, _targetResolution, 1, "AmbientOcclusionUpSampleH",
+			    "AmbientOcclusionUpSampleM", "AmbientOcclusionUpSampleL"); 
+			_horizontalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2,
 				"AOHorizontalH", "AOHorizontalM", "AOHorizontalL");
-			_verticalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, AmbientOcclusionDrt.Resolution, 2,
+			_verticalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2,
 				"AOVerticalH", "AOVerticalM", "AOVerticalL");
 			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, 1, "DeferredH", "DeferredM", "DeferredL");
 			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, 1, "DeferredH", "DeferredM", "DeferredL");
@@ -186,14 +208,26 @@ namespace SphereTracing
 			{
 				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
 			}
+			foreach (var kernel in _sphereTracingDownSamplerKernels)
+            {
+				SphereTracingDownSampler.SetTexture(kernel.Id, "SphereTracingDataLow", _sphereTracingDataLow);
+            }
 			foreach (var kernel in _sphereTracingAoKernels)
 			{
 				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
 				SphereTracingShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
 			}
+			foreach (var kernel in _sphereTracingAoUpSamplerKernels)
+            {
+				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "SphereTracingDataLow", _sphereTracingDataLow);
+				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "AmbientOcclusionDataHigh", AmbientOcclusionDrt.RenderTexture2);
+            }
 			foreach (var kernel in _horizontalBilateralFilterKernels)
 			{
 				BilateralFilterShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+
 				//BilateralFilterShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
 				//BilateralFilterShader.SetTexture(kernel.Id, "AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
 			}
@@ -206,7 +240,7 @@ namespace SphereTracing
 			foreach (var kernel in _deferredKernels)
 			{
 				DeferredShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
-				DeferredShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+				DeferredShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
 				DeferredShader.SetTexture(kernel.Id, "DeferredOutputTexture", _deferredOutput);
 			}
 		}
@@ -257,13 +291,14 @@ namespace SphereTracing
 
 			//Do first SphereTracing step and write SphereTracingData into textures
 			_sphereTracingFKernels[ComputeShaderKernel].Dispatch();
-			_sphereTracingData.GenerateMips();
-			
+			_sphereTracingDownSamplerKernels[ComputeShaderKernel].Dispatch();
+
 			//If ambient occlusion is enabled, calculate AO next
 			if (EnableAmbientOcclusion)
 			{
 				//Calculate AO and write in AmbientOcclusionDrt.RenderTexture
 				_sphereTracingAoKernels[ComputeShaderKernel].Dispatch();
+				_sphereTracingAoUpSamplerKernels[ComputeShaderKernel].Dispatch();
 
 				if (EnableCrossBilateralFiltering)
 				{
@@ -272,15 +307,15 @@ namespace SphereTracing
 						//Filter AO Texture
 						//Bind textures to read and write and do horizontal filtering
 						BilateralFilterShader.SetTexture(_horizontalBilateralFilterKernels[ComputeShaderKernel].Id,
-							"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+							"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
 						BilateralFilterShader.SetTexture(_horizontalBilateralFilterKernels[ComputeShaderKernel].Id,
-							"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
+							"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture3);
 						_horizontalBilateralFilterKernels[ComputeShaderKernel].Dispatch();
 						//Swap textures and do vertical filtering
 						BilateralFilterShader.SetTexture(_verticalBilateralFilterKernels[ComputeShaderKernel].Id,
-							"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
+							"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture3);
 						BilateralFilterShader.SetTexture(_verticalBilateralFilterKernels[ComputeShaderKernel].Id,
-							"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture);
+							"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
 						_verticalBilateralFilterKernels[ComputeShaderKernel].Dispatch();
 					}
 				}
@@ -296,13 +331,14 @@ namespace SphereTracing
 				//Perform iterative steps for transparency and reflections
 				//Do kPass SphereTracing step and write SphereTracingData into textures
 				_sphereTracingKKernels[ComputeShaderKernel].Dispatch();
-				_sphereTracingData.GenerateMips();
-				
+				_sphereTracingDownSamplerKernels[ComputeShaderKernel].Dispatch();
+
 				//If ambient occlusion is enabled, calculate AO next
 				if (EnableAmbientOcclusion)
 				{
 					//Calculate AO and write in AmbientOcclusionDrt.RenderTexture
 					_sphereTracingAoKernels[ComputeShaderKernel].Dispatch();
+					_sphereTracingAoUpSamplerKernels[ComputeShaderKernel].Dispatch();
 
 					if (EnableCrossBilateralFiltering)
 					{
@@ -311,15 +347,15 @@ namespace SphereTracing
 							//Filter AO Texture
 							//Bind textures to read and write and do horizontal filtering
 							BilateralFilterShader.SetTexture(_horizontalBilateralFilterKernels[ComputeShaderKernel].Id,
-								"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+								"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
 							BilateralFilterShader.SetTexture(_horizontalBilateralFilterKernels[ComputeShaderKernel].Id,
-								"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
+								"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture3);
 							_horizontalBilateralFilterKernels[ComputeShaderKernel].Dispatch();
 							//Swap textures and do vertical filtering
 							BilateralFilterShader.SetTexture(_verticalBilateralFilterKernels[ComputeShaderKernel].Id,
-								"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
+								"AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture3);
 							BilateralFilterShader.SetTexture(_verticalBilateralFilterKernels[ComputeShaderKernel].Id,
-								"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture);
+								"AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
 							_verticalBilateralFilterKernels[ComputeShaderKernel].Dispatch();
 						}
 					}
