@@ -1,6 +1,6 @@
-﻿#pragma kernel SphereTracingDownSampleH    ST_R    HIGH
-#pragma kernel SphereTracingDownSampleM    ST_R    MID
-#pragma kernel SphereTracingDownSampleL    ST_R    LOW
+﻿#pragma kernel SphereTracingDownSampleH    ST_R     ST_LOW_RW    HIGH
+#pragma kernel SphereTracingDownSampleM    ST_R     ST_LOW_RW    MID
+#pragma kernel SphereTracingDownSampleL    ST_R     ST_LOW_RW    LOW
 
 
 #include "Defines/HighMidLowThreads.cginc"
@@ -9,22 +9,17 @@
 #include "Inputs/SharedInputs.cginc"
 #include "Inputs/TextureAccessAwareInputs.cginc"
 
-#include "Utils/StructSampleFuncs.cginc"
-
-
-RWTexture2DArray<float4> SphereTracingDataLow;
+#include "Utils/StructCustomSampleFuncs.cginc"
+#include "Utils/StructWriteFuncs.cginc"
 
 void Main(uint3 id, float2 direction)
 {
     float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
     float2 uvstep = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y) * direction;
 
-    SphereTracingData st = SampleSphereTracingData(sampler_point_clamp, uv, id.z, 0.0);
-
-    SphereTracingDataLow[uint3(id.xy, id.z*3 + 0)] = float4(st.Position, st.MaterialId);
-    SphereTracingDataLow[uint3(id.xy, id.z*3 + 1)] = float4(st.RayDirection, st.TraceDistance);
-    SphereTracingDataLow[uint3(id.xy, id.z*3 + 2)] = float4(st.Normal, st.Alpha);
+    SphereTracingData stDownsampled = BilateralSampleSphereTracingData(sampler_point_clamp, uv, id.z, 0.0);
     
+    WriteSphereTracingDataLow(id.xy, id.z, stDownsampled);
 }
 
 [numthreads(ThreadsX, ThreadsY, ThreadsZ)]

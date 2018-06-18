@@ -20,6 +20,11 @@
     Texture2DArray<float4> SphereTracingDataTexture;
 #endif
 
+#ifdef ST_LOW_RW
+    //SphereTracing Low ReadWrite
+    RWTexture2DArray<float4> SphereTracingDataLowTexture;
+#endif
+
 /* AmbientOcclusionTexture
  * Holds two structs AmbientOcclusion for surface and represent:
  * Surface:

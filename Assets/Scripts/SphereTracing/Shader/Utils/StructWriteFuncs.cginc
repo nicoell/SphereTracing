@@ -23,6 +23,15 @@
         SphereTracingDataTexture[uint3(xy, k*3 + 2)] = float4(stData.Normal, stData.Alpha);
     }
 #endif
+
+#ifdef ST_LOW_RW
+    void WriteSphereTracingDataLow(in uint2 xy, in uint k, in SphereTracingData stData)
+    {
+        SphereTracingDataLowTexture[uint3(xy, k*3 + 0)] = float4(stData.Position, stData.MaterialId);
+        SphereTracingDataLowTexture[uint3(xy, k*3 + 1)] = float4(stData.RayDirection, stData.TraceDistance);
+        SphereTracingDataLowTexture[uint3(xy, k*3 + 2)] = float4(stData.Normal, stData.Alpha);
+    }
+#endif
     
 #ifdef AO_RW
     void WriteAmbientOcclusion(in uint2 xy, in uint k, in AmbientOcclusion ao)
