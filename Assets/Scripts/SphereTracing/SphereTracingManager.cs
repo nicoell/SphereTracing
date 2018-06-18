@@ -179,7 +179,7 @@ namespace SphereTracing
 			foreach (var kernel in _sphereTracingDownSamplerKernels)
 			{
 				SphereTracingDownSampler.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
-				SphereTracingDownSampler.SetTexture(kernel.Id, "SphereTracingDataLow", _sphereTracingDataLow);
+				SphereTracingDownSampler.SetTexture(kernel.Id, "SphereTracingDataLowTexture", _sphereTracingDataLow);
 			}
 			foreach (var kernel in _sphereTracingAoKernels)
 			{
@@ -189,7 +189,7 @@ namespace SphereTracing
 			foreach (var kernel in _sphereTracingAoUpSamplerKernels)
 			{
 				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
-				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "SphereTracingDataLow", _sphereTracingDataLow);
+				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "SphereTracingDataLowTexture", _sphereTracingDataLow);
 				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
 				AmbientOcclusionUpSampler.SetTexture(kernel.Id, "AmbientOcclusionDataHigh", AmbientOcclusionDrt.RenderTexture2);
 			}
@@ -352,7 +352,10 @@ namespace SphereTracing
 			if (_stMaterialBuffer != null) _stMaterialBuffer.Release();
 			if (_deferredOutput != null) DestroyImmediate(_deferredOutput);
 			if (_sphereTracingData != null) DestroyImmediate(_sphereTracingData);
+			if (_sphereTracingDataLow != null) DestroyImmediate(_sphereTracingDataLow);
 			if (AmbientOcclusionDrt.RenderTexture != null) DestroyImmediate(AmbientOcclusionDrt.RenderTexture);
+			if (AmbientOcclusionDrt.RenderTexture2 != null) DestroyImmediate(AmbientOcclusionDrt.RenderTexture2);
+			if (AmbientOcclusionDrt.RenderTexture3 != null) DestroyImmediate(AmbientOcclusionDrt.RenderTexture3);
 		}
 		
 		private ComputeKernel[] InitComputeKernels(ComputeShader computeShader, Resolution res, int totalThreadsZ, params string[] kernelNames)
