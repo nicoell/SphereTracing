@@ -88,7 +88,7 @@
 #ifdef AO_R
     AmbientOcclusion DecodeAmbientOcclusion(in float2 uv, in float k, in float mipmap)
     {
-        float4 ao = AmbientOcclusionTexture.SampleLevel(sampler_linear_clamp, float3(uv, k), mipmap);
+        float4 ao = AmbientOcclusionTexture.SampleLevel(sampler_point_clamp, float3(uv, k), mipmap);
         AmbientOcclusion ret;
         ret.BentNormal = ao.xyz;
         ret.SpecularOcclusion = ao.w;

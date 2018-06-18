@@ -169,11 +169,11 @@ namespace SphereTracing
 				"SphereTracingFPassM", "SphereTracingFPassL"); 
 			_sphereTracingKKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingKPassH",
 				"SphereTracingKPassM", "SphereTracingKPassL"); 
-			_sphereTracingDownSamplerKernels = InitComputeKernels(SphereTracingDownSampler, _lowResolution, 1, "SphereTracingDownSampleH",
+			_sphereTracingDownSamplerKernels = InitComputeKernels(SphereTracingDownSampler, _lowResolution, 2, "SphereTracingDownSampleH",
 			    "SphereTracingDownSampleM", "SphereTracingDownSampleL"); 
 			_sphereTracingAoKernels = InitComputeKernels(SphereTracingShader, AmbientOcclusionDrt.Resolution, 1, "AmbientOcclusionH",
 				"AmbientOcclusionM", "AmbientOcclusionL");
-			_sphereTracingAoUpSamplerKernels = InitComputeKernels(AmbientOcclusionUpSampler, _targetResolution, 1, "AmbientOcclusionUpSampleH",
+			_sphereTracingAoUpSamplerKernels = InitComputeKernels(AmbientOcclusionUpSampler, _targetResolution, 2, "AmbientOcclusionUpSampleH",
 			    "AmbientOcclusionUpSampleM", "AmbientOcclusionUpSampleL"); 
 			_horizontalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2,
 				"AOHorizontalH", "AOHorizontalM", "AOHorizontalL");
@@ -193,7 +193,7 @@ namespace SphereTracing
 		{
 			Shader.SetGlobalFloat("AoTargetMip", AmbientOcclusionDrt.TargetMip);
 			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
-			var computeShaders = new[] { SphereTracingShader, BilateralFilterShader, DeferredShader};
+			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
 			foreach (var computeShader in computeShaders)
 			{
 				computeShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
@@ -210,11 +210,12 @@ namespace SphereTracing
 			}
 			foreach (var kernel in _sphereTracingDownSamplerKernels)
             {
+				SphereTracingDownSampler.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
 				SphereTracingDownSampler.SetTexture(kernel.Id, "SphereTracingDataLow", _sphereTracingDataLow);
             }
 			foreach (var kernel in _sphereTracingAoKernels)
 			{
-				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingDataLow);
 				SphereTracingShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
 			}
 			foreach (var kernel in _sphereTracingAoUpSamplerKernels)

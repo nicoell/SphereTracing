@@ -30,10 +30,9 @@ RWTexture2DArray<float4> AmbientOcclusionDataHigh;
 
 void Main(uint3 id, float2 direction)
 {
-    float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
+    float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
     float2 uvstep = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y) * direction;
-    AmbientOcclusion ao;
-    DecodeAmbientOcclusion(uv,id.x, ao);
+    AmbientOcclusion ao = DecodeAmbientOcclusion(uv,id.z, 0.0);
     
     AmbientOcclusionDataHigh[id] = float4(ao.BentNormal,ao.SpecularOcclusion);
 }
