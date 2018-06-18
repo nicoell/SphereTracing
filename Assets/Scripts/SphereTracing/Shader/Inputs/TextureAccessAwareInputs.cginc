@@ -1,5 +1,5 @@
-#ifndef DEFERREDRENDERINGINPUTS_INCLUDED
-#define DEFERREDRENDERINGINPUTS_INCLUDED
+#ifndef TEXTUREACCESSAWAREINPUTS_INCLUDED
+#define TEXTUREACCESSAWAREINPUTS_INCLUDED
 
 /* SphereTracingDataTexture
  *Holds two structs SphereTracingData for surface and represent:
@@ -44,5 +44,4 @@
     RWTexture2D<float4> DeferredOutputTexture;
 #endif
 
-
-#endif // DEFERREDRENDERINGINPUTS_INCLUDED
+#endif // TEXTUREACCESSAWAREINPUTS_INCLUDED

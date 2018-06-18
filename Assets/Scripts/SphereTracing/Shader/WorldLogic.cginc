@@ -1,10 +1,9 @@
 #ifndef WORLDLOGIC_INCLUDED
 #define WORLDLOGIC_INCLUDED
 
-
-#include "Utils/ImplicitBasics.cginc" 
-#include "Inputs/SharedInputs.cginc"
 #include "Defines/SharedConstants.cginc"
+#include "Inputs/SharedInputs.cginc"
+#include "Utils/ImplicitBasics.cginc" 
 
 //Definition of Material IDs
 #define MAT_RED 0

@@ -2,7 +2,7 @@
 #define STRUCTLOADFUNCS_INCLUDED
 
 #include "Defines/Structs.cginc"
-#include "Inputs/DeferredRenderingInputs.cginc"
+#include "Inputs/TextureAccessAwareInputs.cginc"
 
 /*
  * Description of parameters:

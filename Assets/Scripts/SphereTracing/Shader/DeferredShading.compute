@@ -2,30 +2,19 @@
 #pragma kernel DeferredM DEF_RW ST_R AO_R MID
 #pragma kernel DeferredL DEF_RW ST_R AO_R LOW
 
-#ifdef HIGH
-    #define ThreadsX 32
-    #define ThreadsY 20
-    #define ThreadsZ 1
-#elif MID
-    #define ThreadsX 16
-    #define ThreadsY 16
-    #define ThreadsZ 1
-#elif LOW
-    #define ThreadsX 8
-    #define ThreadsY 8
-    #define ThreadsZ 1
-#endif
-
-#include "WorldLogic.cginc"
-#include "Inputs/DeferredFinalizeInputs.cginc"
-#include "Inputs/DeferredRenderingInputs.cginc"
-#include "Inputs/SharedInputs.cginc"
-#include "Defines/Structs.cginc"
+#include "Defines/HighMidLowThreads.cginc"
 #include "Defines/SharedConstants.cginc"
+#include "Defines/Structs.cginc"
+
+#include "Inputs/DeferredShadingInputs.cginc"
+#include "Inputs/SharedInputs.cginc"
+#include "Inputs/TextureAccessAwareInputs.cginc"
 
 #include "Utils/StructLoadFuncs.cginc"
 #include "Utils/StructSampleFuncs.cginc"
 #include "Utils/StructWriteFuncs.cginc"
+
+#include "WorldLogic.cginc"
 
 float3 Background(in Ray r);
 

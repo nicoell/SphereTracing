@@ -6,29 +6,19 @@
 #pragma kernel SphereTracingKPassM  ST_RW    K_PASS   MID
 #pragma kernel SphereTracingKPassL  ST_RW    K_PASS   LOW
 
-#ifdef HIGH
-    #define ThreadsX 32
-    #define ThreadsY 20
-    #define ThreadsZ 1
-#elif MID
-    #define ThreadsX 16
-    #define ThreadsY 16
-    #define ThreadsZ 1
-#elif LOW
-    #define ThreadsX 8
-    #define ThreadsY 8
-    #define ThreadsZ 1
-#endif
-
+#include "Defines/HighMidLowThreads.cginc"
 #include "Defines/SharedConstants.cginc"
 #include "Defines/Structs.cginc"
+
 #include "Inputs/SharedInputs.cginc"
-#include "Inputs/DeferredRenderingInputs.cginc"
 #include "Inputs/SphereTracingInputs.cginc"
+#include "Inputs/TextureAccessAwareInputs.cginc"
+
 #include "Utils/ImplicitBasics.cginc" 
-#include "WorldLogic.cginc"
 #include "Utils/StructLoadFuncs.cginc"
 #include "Utils/StructWriteFuncs.cginc"
+
+#include "WorldLogic.cginc"
 
 float3 CalculateNormal(in float3 pos)
 {
