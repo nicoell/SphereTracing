@@ -162,7 +162,7 @@ namespace SphereTracing
                 dimension = TextureDimension.Tex2DArray,
                 volumeDepth = 6
             };
-            _sphereTracingData.Create();
+            _sphereTracingDataLow.Create();
             
 
 			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingFPassH",
