@@ -19,9 +19,9 @@ namespace SphereTracing
 		private ComputeKernel[] _horizontalBilateralFilterKernels;
 		private ComputeKernel[] _verticalBilateralFilterKernels;
 		private ComputeKernel[] _deferredKernels;
-		private int _prevComputeKernel;
+		
 		private Resolution _targetResolution;
-		private Resolution _lowResolution;
+		
 		private RenderTexture _deferredOutput;
 		private RenderTexture _sphereTracingData;
 		private RenderTexture _sphereTracingDataLow;
@@ -104,7 +104,6 @@ namespace SphereTracing
 			else _targetResolution = Screen.currentResolution;
 
 			AmbientOcclusionDrt.Init("AmbientOcclusion", _targetResolution, RenderTextureFormat.ARGBFloat, TextureDimension.Tex2DArray, 2);
-			_lowResolution = AmbientOcclusionDrt.Resolution;
 
 			// Create Render Texture
 			_deferredOutput = new RenderTexture(_targetResolution.width, _targetResolution.height, 0,
@@ -125,7 +124,7 @@ namespace SphereTracing
 			};
 			_sphereTracingData.Create();
 
-			_sphereTracingDataLow = new RenderTexture(_lowResolution.width, _lowResolution.height, 0,
+			_sphereTracingDataLow = new RenderTexture(AmbientOcclusionDrt.Resolution.width, AmbientOcclusionDrt.Resolution.height, 0,
 				RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
 			{
 				enableRandomWrite = true,
@@ -136,12 +135,11 @@ namespace SphereTracing
 			};
 			_sphereTracingDataLow.Create();
 			
-
 			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingFPassH",
 				"SphereTracingFPassM", "SphereTracingFPassL"); 
 			_sphereTracingKKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingKPassH",
 				"SphereTracingKPassM", "SphereTracingKPassL"); 
-			_sphereTracingDownSamplerKernels = InitComputeKernels(SphereTracingDownSampler, _lowResolution, 2, "SphereTracingDownSampleH",
+			_sphereTracingDownSamplerKernels = InitComputeKernels(SphereTracingDownSampler, AmbientOcclusionDrt.Resolution, 2, "SphereTracingDownSampleH",
 				"SphereTracingDownSampleM", "SphereTracingDownSampleL"); 
 			_sphereTracingAoKernels = InitComputeKernels(AmbientOcclusionShader, AmbientOcclusionDrt.Resolution, 1, "AmbientOcclusionH",
 				"AmbientOcclusionM", "AmbientOcclusionL");
@@ -158,8 +156,6 @@ namespace SphereTracing
 			InitLights();
 			InitMaterials();
 		}
-
-		
 
 		private void SetShaderPropertiesOnce()
 		{
@@ -200,15 +196,10 @@ namespace SphereTracing
 			foreach (var kernel in _horizontalBilateralFilterKernels)
 			{
 				BilateralFilterShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
-
-				//BilateralFilterShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
-				//BilateralFilterShader.SetTexture(kernel.Id, "AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
 			}
 			foreach (var kernel in _verticalBilateralFilterKernels)
 			{
 				BilateralFilterShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
-				//BilateralFilterShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
-				//BilateralFilterShader.SetTexture(kernel.Id, "AmbientOcclusionTarget", AmbientOcclusionDrt.RenderTexture2);
 			}
 			foreach (var kernel in _deferredKernels)
 			{
