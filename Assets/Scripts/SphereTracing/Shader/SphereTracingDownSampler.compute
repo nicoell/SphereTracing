@@ -23,7 +23,7 @@
 #include "Inputs/SharedInputs.cginc"
 #include "Defines/Structs.cginc"
 
-#include "DeferredLogic.cginc"
+#include "Utils/StructSampleFuncs.cginc"
 
 
 RWTexture2DArray<float4> SphereTracingDataLow;
@@ -33,8 +33,7 @@ void Main(uint3 id, float2 direction)
     float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
     float2 uvstep = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y) * direction;
 
-    SphereTracingData st;
-    DecodeSphereTracingData(uv,id.z,0.0,st);
+    SphereTracingData st = SampleSphereTracingData(sampler_point_clamp, uv, id.z, 0.0);
 
     SphereTracingDataLow[uint3(id.xy, id.z*3 + 0)] = float4(st.Position, st.MaterialId);
     SphereTracingDataLow[uint3(id.xy, id.z*3 + 1)] = float4(st.RayDirection, st.TraceDistance);

@@ -1,14 +1,31 @@
-#ifndef AMBIENTOCCLUSION_INCLUDED
-#define AMBIENTOCCLUSION_INCLUDED
+#pragma kernel AmbientOcclusionH    ST_R    AO_RW    AO       HIGH
+#pragma kernel AmbientOcclusionM    ST_R    AO_RW    AO       MID
+#pragma kernel AmbientOcclusionL    ST_R    AO_RW    AO       LOW
+
+#ifdef HIGH
+    #define ThreadsX 32
+    #define ThreadsY 20
+    #define ThreadsZ 1
+#elif MID
+    #define ThreadsX 16
+    #define ThreadsY 16
+    #define ThreadsZ 1
+#elif LOW
+    #define ThreadsX 8
+    #define ThreadsY 8
+    #define ThreadsZ 1
+#endif
 
 #include "Defines/SharedConstants.cginc"
 #include "Defines/Structs.cginc"
 #include "Inputs/SharedInputs.cginc"
 #include "Inputs/DeferredRenderingInputs.cginc"
 #include "Inputs/SphereTracingInputs.cginc"
-#include "DeferredLogic.cginc"
-#include "WorldLogic.cginc"
+#include "Utils/ImplicitBasics.cginc" 
+#include "Utils/StructSampleFuncs.cginc"
+#include "Utils/StructWriteFuncs.cginc"
 #include "Utils/Random.cginc"
+#include "WorldLogic.cginc"
 
 float3 SphericalFibonacciMapping(float i, float n, float rand)
 {
@@ -132,4 +149,44 @@ void ComputeAO(in float2 uv, in float3 pos, in float3 dir, in float3 normal, in 
     specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
 }
 
-#endif // AMBIENTOCCLUSION_INCLUDED
+void CalcAO(uint3 id)
+{
+    float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
+    
+    SphereTracingData surface = SampleSphereTracingData(sampler_point_clamp, uv, 0, 0);
+	SphereTracingData represent = SampleSphereTracingData(sampler_point_clamp, uv, 1, 0);
+	AmbientOcclusion surfaceAo;
+	AmbientOcclusion representAo;
+    
+    //Sample SphereTracingData from surface and represent
+    
+    
+    
+    //Do not calculate ao if a surface' alpha doesn't have an impact
+    if (sign(surface.MaterialId) >= 0) {
+        StMaterial surfaceMat = MaterialBuffer[surface.MaterialId];
+        ComputeAO(uv, surface.Position, (surface.RayDirection), normalize(surface.Normal), surfaceMat.ReflectiveF,
+            surfaceAo.BentNormal, surfaceAo.SpecularOcclusion);
+    } else {
+        surfaceAo.BentNormal = (float3) 0;
+        surfaceAo.SpecularOcclusion = 0;
+    }
+    if (represent.Alpha > ALPHAEPSILON) {
+        StMaterial representMat = MaterialBuffer[represent.MaterialId];
+        ComputeAO(uv, represent.Position, represent.RayDirection, represent.Normal, representMat.ReflectiveF, 
+            representAo.BentNormal, representAo.SpecularOcclusion);
+    } else {
+        representAo.BentNormal = (float3) 0;
+        representAo.SpecularOcclusion = 0;
+    }
+             
+    WriteAmbientOcclusion(id.xy, 0, surfaceAo);
+    WriteAmbientOcclusion(id.xy, 1, representAo);
+}
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionH (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionM (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionL (uint3 id : SV_DispatchThreadID) { CalcAO(id); }

@@ -44,8 +44,5 @@
     RWTexture2D<float4> DeferredOutputTexture;
 #endif
 
-SamplerState sampler_linear_clamp;
-SamplerState sampler_point_clamp;
-
 
 #endif // DEFERREDRENDERINGINPUTS_INCLUDED

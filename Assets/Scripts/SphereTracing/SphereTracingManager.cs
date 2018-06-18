@@ -59,10 +59,11 @@ namespace SphereTracing
 
 		[Header("Dependencies")]
 		public ComputeShader SphereTracingShader;
+		public ComputeShader SphereTracingDownSampler;
+		public ComputeShader AmbientOcclusionShader;
+		public ComputeShader AmbientOcclusionUpSampler;
 		public ComputeShader BilateralFilterShader;
 		public ComputeShader DeferredShader;
-		public ComputeShader SphereTracingDownSampler;
-		public ComputeShader AmbientOcclusionUpSampler;
 
 		[Header("Resolution")]
 		public bool UseCustomResolution;
@@ -171,7 +172,7 @@ namespace SphereTracing
 				"SphereTracingKPassM", "SphereTracingKPassL"); 
 			_sphereTracingDownSamplerKernels = InitComputeKernels(SphereTracingDownSampler, _lowResolution, 2, "SphereTracingDownSampleH",
 				"SphereTracingDownSampleM", "SphereTracingDownSampleL"); 
-			_sphereTracingAoKernels = InitComputeKernels(SphereTracingShader, AmbientOcclusionDrt.Resolution, 1, "AmbientOcclusionH",
+			_sphereTracingAoKernels = InitComputeKernels(AmbientOcclusionShader, AmbientOcclusionDrt.Resolution, 1, "AmbientOcclusionH",
 				"AmbientOcclusionM", "AmbientOcclusionL");
 			_sphereTracingAoUpSamplerKernels = InitComputeKernels(AmbientOcclusionUpSampler, _targetResolution, 2, "AmbientOcclusionUpSampleH",
 				"AmbientOcclusionUpSampleM", "AmbientOcclusionUpSampleL"); 
@@ -193,7 +194,7 @@ namespace SphereTracing
 		{
 			Shader.SetGlobalFloat("AoTargetMip", AmbientOcclusionDrt.TargetMip);
 			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
-			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
+			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionShader, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
 			foreach (var computeShader in computeShaders)
 			{
 				computeShader.SetFloats("Resolution", _targetResolution.width, _targetResolution.height);
@@ -215,8 +216,8 @@ namespace SphereTracing
 			}
 			foreach (var kernel in _sphereTracingAoKernels)
 			{
-				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingDataLow);
-				SphereTracingShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+				AmbientOcclusionShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingDataLow);
+				AmbientOcclusionShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
 			}
 			foreach (var kernel in _sphereTracingAoUpSamplerKernels)
 			{
@@ -500,7 +501,7 @@ namespace SphereTracing
 
 			DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
 			SphereTracingShader.SetBuffer(_sphereTracingKKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
-			SphereTracingShader.SetBuffer(_sphereTracingAoKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
+			AmbientOcclusionShader.SetBuffer(_sphereTracingAoKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
 		}
 		
 		#endregion

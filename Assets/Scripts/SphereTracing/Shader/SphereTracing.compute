@@ -6,10 +6,6 @@
 #pragma kernel SphereTracingKPassM  ST_RW    K_PASS   MID
 #pragma kernel SphereTracingKPassL  ST_RW    K_PASS   LOW
 
-#pragma kernel AmbientOcclusionH    ST_R    AO_RW    AO       HIGH
-#pragma kernel AmbientOcclusionM    ST_R    AO_RW    AO       MID
-#pragma kernel AmbientOcclusionL    ST_R    AO_RW    AO       LOW
-
 #ifdef HIGH
     #define ThreadsX 32
     #define ThreadsY 20
@@ -31,10 +27,8 @@
 #include "Inputs/SphereTracingInputs.cginc"
 #include "Utils/ImplicitBasics.cginc" 
 #include "WorldLogic.cginc"
-#include "DeferredLogic.cginc"
-#include "AmbientOcclusion.cginc"
-
-#ifndef AO
+#include "Utils/StructLoadFuncs.cginc"
+#include "Utils/StructWriteFuncs.cginc"
 
 float3 CalculateNormal(in float3 pos)
 {
@@ -170,12 +164,12 @@ void Main(uint3 id)
 {
     float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
     
-    SphereTracingData Surface;
-    SphereTracingData Represent;
+    SphereTracingData surface;
+    SphereTracingData represent;
     
     #ifdef F_PASS
-        Surface.Alpha = 1.0;
-        Represent.Alpha = 1.0;
+        surface.Alpha = 1.0;
+        represent.Alpha = 1.0;
         //Create Ray through current Pixel
         Ray r;
         r.uv = uv;
@@ -187,56 +181,56 @@ void Main(uint3 id)
         r.Direction = (mul(CameraInverseViewMatrix, rayDir).xyz);
     #elif K_PASS
         //Read SphereTracingData from previuos pass
-        DecodeSphereTracingData(id.xy, 0, Surface);
-        DecodeSphereTracingData(id.xy, 1, Represent);
+        surface = LoadSphereTracingData(id.xy, 0);
+        represent = LoadSphereTracingData(id.xy, 1);
         //Do not calculate pass if neither surface nor represent alpha has an impact
-        if (Surface.Alpha <= ALPHAEPSILON && Represent.Alpha <= ALPHAEPSILON) return;        
+        if (surface.Alpha <= ALPHAEPSILON && represent.Alpha <= ALPHAEPSILON) return;        
         
         /*
          * TODO: Handle transparent materials
          *          Somehow need to exlude the transparent object in signed distance field
          *          Maybe use ScreenSpace Reflections in this case and only follow transparent ray
-         *          Or use the represent Surface for transparency/reflection since it is only needed for edges
+         *          Or use the represent surface for transparency/reflection since it is only needed for edges
          */
         
         //Evaluate Material to calculate new Ray Direction
-        StMaterial surfaceMat = MaterialBuffer[Surface.MaterialId];
-        StMaterial representMat = MaterialBuffer[Represent.MaterialId];
-        Surface.Alpha *= surfaceMat.ReflectiveF;
-        Represent.Alpha *= representMat.ReflectiveF;
+        StMaterial surfaceMat = MaterialBuffer[surface.MaterialId];
+        StMaterial representMat = MaterialBuffer[represent.MaterialId];
+        surface.Alpha *= surfaceMat.ReflectiveF;
+        represent.Alpha *= representMat.ReflectiveF;
         
-        if (sign(Surface.MaterialId) < 0) Surface.Alpha = 0;
-        if (sign(Represent.MaterialId) < 0) Represent.Alpha = 0;
+        if (sign(surface.MaterialId) < 0) surface.Alpha = 0;
+        if (sign(represent.MaterialId) < 0) represent.Alpha = 0;
         //Test again if we need to calculate this pass
-        if (Surface.Alpha <= ALPHAEPSILON && Represent.Alpha <= ALPHAEPSILON){
+        if (surface.Alpha <= ALPHAEPSILON && represent.Alpha <= ALPHAEPSILON){
             //If not, we need to write the new alphas to texture before we stop
-            EncodeSphereTracingData(id.xy, 0, Surface);
-            EncodeSphereTracingData(id.xy, 1, Represent);
+            WriteSphereTracingData(id.xy, 0, surface);
+            WriteSphereTracingData(id.xy, 1, represent);
             return;
         }
         //We only follow one ray though, so we choose the one with greater visual impact
         Ray r;
         r.uv = uv;
-        if (Surface.Alpha >= Represent.Alpha) {
-            r.Origin = Surface.Position;
+        if (surface.Alpha >= represent.Alpha) {
+            r.Origin = surface.Position;
             //normalize(dir - 2 * normalize( dot(dir, normal) * normal))  
-            r.Direction = reflect(normalize(Surface.RayDirection), Surface.Normal);
-            //r.Direction = reflect(normalize(Surface.RayDirection), Surface.Normal);
+            r.Direction = reflect(normalize(surface.RayDirection), surface.Normal);
+            //r.Direction = reflect(normalize(surface.RayDirection), surface.Normal);
         } else {
-            r.Origin = Represent.Position;
-            r.Direction = reflect(normalize(Represent.RayDirection), Represent.Normal);
-            //r.Direction = reflect(normalize(Represent.RayDirection), Represent.Normal);
+            r.Origin = represent.Position;
+            r.Direction = reflect(normalize(represent.RayDirection), represent.Normal);
+            //r.Direction = reflect(normalize(represent.RayDirection), represent.Normal);
         }
     #endif
 
     Hit surfaceHit;
     Hit representHit;
     RayMarch(r, surfaceHit, representHit);
-    EvaluateHit(id.xy, r, surfaceHit, Surface);
-    EvaluateHit(id.xy, r, representHit, Represent);
+    EvaluateHit(id.xy, r, surfaceHit, surface);
+    EvaluateHit(id.xy, r, representHit, represent);
 
-    EncodeSphereTracingData(id.xy, 0, Surface);
-    EncodeSphereTracingData(id.xy, 1, Represent);
+    WriteSphereTracingData(id.xy, 0, surface);
+    WriteSphereTracingData(id.xy, 1, represent);
 }
 
 [numthreads(ThreadsX, ThreadsY, ThreadsZ)]
@@ -252,52 +246,3 @@ void SphereTracingKPassH (uint3 id : SV_DispatchThreadID) { Main(id); }
 void SphereTracingKPassM (uint3 id : SV_DispatchThreadID) { Main(id); }
 [numthreads(ThreadsX, ThreadsY, ThreadsZ)]
 void SphereTracingKPassL (uint3 id : SV_DispatchThreadID) { Main(id); }
-    
-#endif
-
-
-#ifdef AO
-
-void CalcAO(uint3 id)
-{
-    float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
-    
-    SphereTracingData Surface;
-	SphereTracingData Represent;
-	AmbientOcclusion SurfaceAo;
-	AmbientOcclusion RepresentAo;
-    
-    //Read SphereTracingData from surface and represent
-    DecodeSphereTracingData(uv, 0.0, 0, Surface);
-    DecodeSphereTracingData(uv, 1.0, 0, Represent);
-    
-    //Do not calculate ao if a surface' alpha doesn't have an impact
-    if (sign(Surface.MaterialId) >= 0) {
-        StMaterial surfaceMat = MaterialBuffer[Surface.MaterialId];
-        ComputeAO(uv, Surface.Position, (Surface.RayDirection), normalize(Surface.Normal), surfaceMat.ReflectiveF,
-            SurfaceAo.BentNormal, SurfaceAo.SpecularOcclusion);
-    } else {
-        SurfaceAo.BentNormal = (float3) 0;
-        SurfaceAo.SpecularOcclusion = 0;
-    }
-    if (Represent.Alpha > ALPHAEPSILON) {
-        StMaterial representMat = MaterialBuffer[Represent.MaterialId];
-        ComputeAO(uv, Represent.Position, Represent.RayDirection, Represent.Normal, representMat.ReflectiveF, 
-            RepresentAo.BentNormal, RepresentAo.SpecularOcclusion);
-    } else {
-        RepresentAo.BentNormal = (float3) 0;
-        RepresentAo.SpecularOcclusion = 0;
-    }
-             
-    EncodeAmbientOcclusion(id.xy, 0, SurfaceAo);
-    EncodeAmbientOcclusion(id.xy, 1, RepresentAo);
-}
-
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
-void AmbientOcclusionH (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
-void AmbientOcclusionM (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
-void AmbientOcclusionL (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
-
-#endif
