@@ -10,14 +10,20 @@
 #include "Inputs/TextureAccessAwareInputs.cginc"
 
 #include "Utils/StructCustomSampleFuncs.cginc"
+#include "Utils/StructSampleFuncs.cginc"
 #include "Utils/StructWriteFuncs.cginc"
 
 void Main(uint3 id, float2 direction)
 {
-    float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
-    float2 uvstep = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y) * direction;
+    float2 uvCenterLow = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
+    float2 uvStepFull = float2(1.0 / Resolution.x, 1.0 / Resolution.y) * direction;
 
-    SphereTracingData stDownsampled = BilateralSampleSphereTracingData(sampler_point_clamp, uv, id.z, 0.0);
+    SphereTracingData stDownsampled;
+    //if (uvCenterLow.x < 0.5){
+    //    stDownsampled = SampleSphereTracingData(sampler_point_clamp, uvCenterLow, id.z, 0.0);
+    //} else {
+        stDownsampled = DownsampleSphereTracingData(uvCenterLow, uvStepFull, id.z, AoTargetMip);
+    //}
     
     WriteSphereTracingDataLow(id.xy, id.z, stDownsampled);
 }
