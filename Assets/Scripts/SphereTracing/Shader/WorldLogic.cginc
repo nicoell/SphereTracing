@@ -64,7 +64,7 @@ float2 PlaneTest(in float3 pos)
 //Finalized methods from here on 
 float4x4 GetTxMatrix(in float3 t, in float3 r)
 {   
-
+    t = -t;
     float4x4 tm = float4x4(1.0, 0.0, 0.0, t.x, 
                             0.0, 1.0, 0.0, t.y,
                             0.0, 0.0, 1.0, t.z,
@@ -114,6 +114,7 @@ float2 Sphere(float3 pos, float rad, float3 t, float3 r, float mat)
     return float2(sdSphere(pos, rad), mat);
 }
 
+
 /*
  *  Map
  * 
@@ -127,28 +128,30 @@ float2 Map(in float3 pos)
     //floor
 	float2 res = PlaneTest(pos);
     //left wall
-    float2 wall = Box(pos, float3(10,2,1), float3(2,6,0), float3(0,0,0), MAT_FLOOR);
-    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(-6,6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
-    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(-2.5,6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
-    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(1,6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
-    wall = opU(wall, Box(pos, float3(.5,2,10), float3(-8,6,9), float3(0,0,0), MAT_FLOOR));
+    float2 wall = Box(pos, float3(10,2,1), float3(-2,-6,0), float3(0,0,0), MAT_FLOOR);
+    //holes in left wall
+    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(6,-6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
+    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(2.5,-6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
+    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(-1,-6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
+    //leftwall 2
+    wall = opU(wall, Box(pos, float3(.5,2,10), float3(8,-6,-9), float3(0,0,0), MAT_FLOOR));
 
     res = opU(res,wall);
 
     //right wall
-    res = opU(res, Box(pos, float3(10,2,1), float3(2,6,-6), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(10,2,1), float3(-2,-6,6), float3(0,0,0), MAT_FLOOR));
+    //roof
+    res = opU(res, Box(pos, float3(9,.5,3), float3(-3,-4.5,2), float3(0,0,0), MAT_FLOOR));
     //pillars
-    res = opU(res, Box(pos, float3(9,.5,3), float3(3,4.5,-2), float3(0,0,0), MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(10,6.5,-3), float3(0,0,0), MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(7,6.5,-3), float3(0,0,0), MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(4,6.5,-3), float3(0,0,0), MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(1,6.5,-3), float3(0,0,0), MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-2,6.5,-3), float3(0,0,0), MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-5,6.5,-3), float3(0,0,0), MAT_FLOOR));
-
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-10,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-7,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-4,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-1,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(2,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(5,-6.5,3), float3(0,0,0), MAT_FLOOR));
 
     //spheres
-    res = opU(res, Sphere(pos, .2, float3(-5,7,-4), float3(0,0,0), MAT_GREEN));
+    res = opU(res, Sphere(pos, .2, float3(5,-7,4), float3(0,0,0), MAT_GREEN));
 	return res;
 }
 
