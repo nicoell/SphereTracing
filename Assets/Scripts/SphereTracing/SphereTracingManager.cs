@@ -6,7 +6,6 @@ using SphereTracing.Materials;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-
 namespace SphereTracing
 {
 	public class SphereTracingManager : MonoBehaviour
@@ -312,9 +311,7 @@ namespace SphereTracing
 			//Render Texture on Screen
 			Graphics.Blit(_deferredOutput, (RenderTexture) null);
 		}
-
-		private void OnDrawGizmos() { Gizmos.DrawSphere(Vector3.zero, 3f); }
-
+		
 		private void OnDrawGizmosSelected()
 		{
 			//Draw Camera Frustum Edge Vectors
