@@ -44,6 +44,29 @@ float ShadowSoft(float3 ro, SphereTracingData surface, int k, float bias)
     return res;
 }
 
+float ShadowSoft2(float3 lightPos, SphereTracingData surface, int k, float bias)
+{
+    float res = 1.0;
+    float ph = 1e10;
+    float3 ro = surface.Position;
+    float3 rd = normalize(lightPos-surface.Position);
+    float t = bias;
+    float maxt = length(lightPos-surface.Position); 
+    for (int i = 0; i < 64; i++) 
+    {
+        float3 pos = ro + rd*t;
+        float h = Map(pos).x;
+
+        float y = (i == 0) ? 0.0 : h*h/(2*ph);
+        float d = sqrt(h*h-y*y);
+        res = min(res, k*d/max(0.0,t-y));
+        ph = h;  
+        t += h;
+        if (res < 0.001 || t > maxt) break;
+    }
+    return saturate(res);
+}
+
 float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyColor)
 {
     float3 color = float3(.0, .0, .0);
@@ -88,7 +111,8 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
                 attenuation = lightPower / length(lightDir);
                 lightDir = normalize(lightDir);
                 lightColor = light.LightData.xyz;
-                shadow = ShadowSoft(light.LightData2.xyz, surface, 24, .2);
+                //shadow = ShadowSoft(light.LightData2.xyz, surface, 24, .2);
+                //shadow = ShadowSoft2(light.LightData2.xyz, surface, 10, .01);
 
             } else if (light.LightType == 1)        // Directional Light
             {
@@ -99,7 +123,7 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
                 //NOTE: Low performance on Directional Light for Shadows
                 float3 fakeLightPos = lightDir*20;
                 float3 fakeLightDir = normalize(fakeLightPos - surface.Position);
-                shadow = ShadowSoft(fakeLightPos, surface, 512, .2);
+                //shadow = ShadowSoft(fakeLightPos, surface, 512, .2);
  
             }
             
