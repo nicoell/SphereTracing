@@ -104,10 +104,10 @@
         };
 
         //Gather 4 depth and normal samples from downsampled spheretracingdata texture
-        float4 depth = SphereTracingDataTextureLow.GatherAlpha(sampler_linear_clamp, float3(uv, k*3.0 + 1.0));
-        float4 normalX = SphereTracingDataTextureLow.GatherRed(sampler_linear_clamp, float3(uv, k*3.0 + 2.0));
-        float4 normalY = SphereTracingDataTextureLow.GatherGreen(sampler_linear_clamp, float3(uv, k*3.0 + 2.0));
-        float4 normalZ = SphereTracingDataTextureLow.GatherBlue(sampler_linear_clamp, float3(uv, k*3.0 + 2.0));
+        float4 depth = SphereTracingDataLowTexture.GatherAlpha(sampler_linear_clamp, float3(uv, k*3.0 + 1.0));
+        float4 normalX = SphereTracingDataLowTexture.GatherRed(sampler_linear_clamp, float3(uv, k*3.0 + 2.0));
+        float4 normalY = SphereTracingDataLowTexture.GatherGreen(sampler_linear_clamp, float3(uv, k*3.0 + 2.0));
+        float4 normalZ = SphereTracingDataLowTexture.GatherBlue(sampler_linear_clamp, float3(uv, k*3.0 + 2.0));
         //stitch them back together
         float depthLow[4] = {
             depth.x,
