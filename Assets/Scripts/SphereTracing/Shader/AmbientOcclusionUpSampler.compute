@@ -1,6 +1,6 @@
-﻿#pragma kernel AmbientOcclusionUpSampleH    ST_R  AO_R   HIGH
-#pragma kernel AmbientOcclusionUpSampleM    ST_R  AO_R   MID
-#pragma kernel AmbientOcclusionUpSampleL    ST_R  AO_R   LOW
+﻿#pragma kernel AmbientOcclusionUpSampleH    ST_R ST_LOW_R AO_R HIGH
+#pragma kernel AmbientOcclusionUpSampleM    ST_R ST_LOW_R AO_R MID
+#pragma kernel AmbientOcclusionUpSampleL    ST_R ST_LOW_R AO_R LOW
 
 #include "Defines/HighMidLowThreads.cginc"
 #include "Defines/Structs.cginc"
@@ -8,7 +8,7 @@
 #include "Inputs/SharedInputs.cginc"
 #include "Inputs/TextureAccessAwareInputs.cginc"
 
-#include "Utils/StructSampleFuncs.cginc"
+#include "Utils/StructCustomSampleFuncs.cginc"
 
 
 RWTexture2DArray<float4> AmbientOcclusionDataHigh;
@@ -17,9 +17,10 @@ void Main(uint3 id, float2 direction)
 {
     float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
     float2 uvstep = float2(1.0 / AoResolution.x, 1.0 / AoResolution.y) * direction;
-    AmbientOcclusion ao = SampleAmbientOcclusion(sampler_point_clamp, uv, id.z, 0.0);
+    //AmbientOcclusion ao = SampleAmbientOcclusion(sampler_point_clamp, uv, id.z, 0.0);
+    AmbientOcclusion ao = UpSampleAmbientOcclusion(uv, id.z, 0.0)
     
-    AmbientOcclusionDataHigh[id] = float4(ao.BentNormal,ao.SpecularOcclusion);
+    AmbientOcclusionDataHigh[id] = float4(ao.BentNormal, ao.SpecularOcclusion);
 }
 
 [numthreads(ThreadsX, ThreadsY, ThreadsZ)]

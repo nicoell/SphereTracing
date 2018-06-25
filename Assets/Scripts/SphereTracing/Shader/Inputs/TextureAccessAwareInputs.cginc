@@ -23,6 +23,8 @@
 #ifdef ST_LOW_RW
     //SphereTracing Low ReadWrite
     RWTexture2DArray<float4> SphereTracingDataLowTexture;
+#elif ST_LOW_R
+    Texture2DArray<float4> SphereTracingDataLowTexture;
 #endif
 
 /* AmbientOcclusionTexture

@@ -42,6 +42,11 @@ SamplerState sampler_linear_clamp;
     {
         return SphereTracingDataTexture.SampleLevel(smplr, float3(uv, k*3.0 + 1.0), mipmap).w;
     }
+
+    float3 SampleNormal(uniform SamplerState smplr, in float2 uv, in float k, in float mipmap)
+    {
+        return SphereTracingDataTexture.SampleLevel(smplr, float3(uv, k*3.0 + 2.0), mipmap).xyz;
+    }
 #endif
     
 #ifdef AO_R
