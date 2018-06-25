@@ -129,25 +129,35 @@
         const float epsilon = 0.001;
         float totalWeight = 0;
         float4 aoUpsampled = (float4) 0.0;
-
+        int smallestI = 0;
+        float minDepth = 10000000;
         for(int i = 0; i<4; i++)
         {
             float depthDiff = abs(depthFull - depthLow[i]);
-            float depthWeight = 1.0 / (epsilon + depthDiff);
+            float depthWeight = 1.0 / (epsilon + depthFull * .01 + depthDiff);
+            if(depthDiff < minDepth){
+                minDepth = depthDiff; 
+                smallestI = i;
+            }
 
-            float normalWeight = pow(dot(normalFull, normalLow[i]), 32);
+            float normalWeight = pow(abs(dot(normalFull, normalLow[i])), 32);
 
-            float combinedWeight = depthWeight * normalWeight;
+            float combinedWeight = normalWeight * depthWeight;
             totalWeight += combinedWeight;
 
             aoUpsampled += aoLow[i] * combinedWeight;
         }
-
-        aoUpsampled /= totalWeight;
-
+        if(totalWeight != totalWeight || totalWeight <  epsilon || totalWeight > 1000)
+        {
+            aoUpsampled = aoLow[smallestI];
+        }
+        else
+        {
+            aoUpsampled /= totalWeight;
+        }
         AmbientOcclusion aoRet;
         aoRet.BentNormal = aoUpsampled.xyz;
-        aoRet.SpecularOcclusion = aoUpsampled.w;
+        aoRet.SpecularOcclusion = totalWeight;
         return aoRet;
     }
 

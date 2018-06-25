@@ -19,11 +19,11 @@ void Main(uint3 id, float2 direction)
     float2 uvStepFull = float2(1.0 / Resolution.x, 1.0 / Resolution.y) * direction;
 
     SphereTracingData stDownsampled;
-    //if (uvCenterLow.x < 0.5){
-    //    stDownsampled = SampleSphereTracingData(sampler_point_clamp, uvCenterLow, id.z, 0.0);
-    //} else {
+    if (uvCenterLow.x < 0.5){
+        stDownsampled = SampleSphereTracingData(sampler_point_clamp, uvCenterLow, id.z, 0.0);
+    } else {
         stDownsampled = DownsampleSphereTracingData(uvCenterLow, uvStepFull, id.z, AoTargetMip);
-    //}
+    }
     
     WriteSphereTracingDataLow(id.xy, id.z, stDownsampled);
 }
