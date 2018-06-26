@@ -157,7 +157,7 @@
         }
         AmbientOcclusion aoRet;
         aoRet.BentNormal = aoUpsampled.xyz;
-        aoRet.SpecularOcclusion = totalWeight;
+        aoRet.SpecularOcclusion = aoUpsampled.w;
         return aoRet;
     }
 
