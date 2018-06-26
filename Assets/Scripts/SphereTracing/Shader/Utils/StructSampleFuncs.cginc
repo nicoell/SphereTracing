@@ -58,6 +58,11 @@ SamplerState sampler_linear_clamp;
         ret.SpecularOcclusion = ao.w;
         return ret;
     }
+    
+    float4 SampleAmbientOcclusionAsFloat4(uniform SamplerState smplr, in float2 uv, in float k, in float mipmap)
+    {
+        return AmbientOcclusionTexture.SampleLevel(smplr, float3(uv, k), mipmap);
+    }
 #endif
 
 #endif // STRUCTSAMPLEFUNCS_INCLUDED

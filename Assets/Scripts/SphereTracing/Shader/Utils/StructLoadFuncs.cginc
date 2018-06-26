@@ -40,6 +40,16 @@
     {
         return SphereTracingDataTexture[uint3(xy, k*3 + 2)].w;
     }
+    
+    float3 LoadNormal(in uint2 xy, in uint k)
+    {
+        return SphereTracingDataTexture[uint3(xy, k*3 + 2)].xyz;
+    }
+     
+    float LoadTraceDistance(in uint2 xy, in uint k)
+    {
+        return SphereTracingDataTexture[uint3(xy, k*3 + 1)].w;
+    } 
 #endif
     
 #if defined(AO_R) || defined(AO_RW)
@@ -48,6 +58,14 @@
         AmbientOcclusion ao;
         ao.BentNormal = AmbientOcclusionTexture[uint3(xy, k)].xyz;
         ao.SpecularOcclusion = AmbientOcclusionTexture[uint3(xy, k)].w;
+        return ao;
+    }
+    
+    float4 LoadAmbientOcclusionAsFloat4(in uint2 xy, in uint k)
+    {
+        float4 ao;
+        ao.xyz = AmbientOcclusionTexture[uint3(xy, k)].xyz;
+        ao.w = AmbientOcclusionTexture[uint3(xy, k)].w;
         return ao;
     }
 #endif

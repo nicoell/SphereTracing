@@ -625,7 +625,7 @@ MonoBehaviour:
     type: 3}
   DeferredShader: {fileID: 7200000, guid: ee9c665b7ba842b1ad6ca91d1cab0fd5, type: 3}
   UseCustomResolution: 1
-  CustomResolution: {x: 1024, y: 768}
+  CustomResolution: {x: 1280, y: 720}
   ComputeShaderKernel: 2
   SphereTracingSteps: 297
   IterativeSteps: 1
@@ -635,7 +635,7 @@ MonoBehaviour:
   EnableSuperSampling: 0
   LightCount: 4
   ClearColor: {r: 0, g: 0, b: 0, a: 1}
-  EnableAmbientOcclusion: 0
+  EnableAmbientOcclusion: 1
   AmbientOcclusionSamples: 9
   AmbientOcclusionSteps: 14
   AmbientOcclusionMaxDistance: 2
@@ -643,7 +643,7 @@ MonoBehaviour:
   OcclusionExponent: 1
   BentNormalFactor: 1
   EnableGlobalIllumination: 0
-  EnableCrossBilateralFiltering: 0
+  EnableCrossBilateralFiltering: 1
   RangeSigma: 2
   FilterSteps: 1
   NearestDepthThreshold: 0.0051

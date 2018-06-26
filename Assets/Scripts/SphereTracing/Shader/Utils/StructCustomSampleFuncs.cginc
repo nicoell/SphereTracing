@@ -134,7 +134,7 @@
         for(int i = 0; i<4; i++)
         {
             float depthDiff = abs(depthFull - depthLow[i]);
-            float depthWeight = 1.0 / (epsilon + depthFull * .01 + depthDiff);
+            float depthWeight = 1.0 / (epsilon + depthFull * .01 + depthDiff); //Warning: centerData.TraceDistance * .01 is some arbitrary linear factor.
             if(depthDiff < minDepth){
                 minDepth = depthDiff; 
                 smallestI = i;
