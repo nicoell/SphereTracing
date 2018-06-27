@@ -15,13 +15,7 @@
 #include "Utils/StructLoadFuncs.cginc"
 #include "Utils/StructWriteFuncs.cginc"
 
-/*
- * PseudoSeparable CrossBilateralFilter with efficient GPU linear sampling 
- * http://rastergrid.com/blog/2010/09/efficient-gaussian-blur-with-linear-sampling/
- */
-
 //Filter kernelsize to each side of pixel. Total kernelsize is 2*FilterSize + 1
-//#define DiscreteFilterSize 4
 //#define FilterSize 4
 #define FilterSize 14
 float RangeSigma;
@@ -33,8 +27,6 @@ struct BilateralData
     float3 Normal;
     float TraceDistance;
 };
-
-
 
 #ifdef HORIZONTAL
     #define ThreadLength ThreadsX
@@ -95,19 +87,15 @@ void Main(uint3 id, uint3 gtid, float2 direction)
     
     //Blocks execution of all threads in a group until all group shared accesses have been completed and all threads in the group have reached this call.
     GroupMemoryBarrierWithGroupSync();
-    
-    // Gaussian Kernel with sigma = 2
-    //const float discreteOffsets[5] = {0.0, 1.0, 2.0, 3.0, 4.0};
+        
     //const float discreteWeights[5] = {0.20236, 0.179044, 0.124009, 0.067234, 0.028532};
     const float discreteWeights[15] = {0.079954, 0.078376, 0.073827, 0.066823, 0.05812, 0.048575, 0.039011, 0.030106, 0.022325, 0.015908, 0.010893, 0.007167, 0.004531, 0.002753, 0.001607};
-    /*float2 uvOffsets[5] = {discreteOffsets[0] * uvstep, discreteOffsets[1] * uvstep, discreteOffsets[2] * uvstep,
-        discreteOffsets[3] * uvstep, discreteOffsets[4] * uvstep};*/
     const float epsilon = 0.001;
     
     float4 aoFiltered;
     aoFiltered = centerData.Ao * discreteWeights[0];
     float totalWeight = discreteWeights[0];
-    
+
     [unroll]
     for (int i = 1; i <= FilterSize; i++) {
         [unroll]
@@ -119,7 +107,7 @@ void Main(uint3 id, uint3 gtid, float2 direction)
             float depthWeight = 1.0 / (epsilon + centerData.TraceDistance * .01 + depthDiff); //Warning: centerData.TraceDistance * .01 is some arbitrary linear factor.
             
             float normalWeight = pow(abs(dot(centerData.Normal, bData.Normal)), 32);
-            
+
             float combinedWeight = discreteWeights[i] * depthWeight * normalWeight;
             totalWeight += combinedWeight;
             
@@ -128,46 +116,9 @@ void Main(uint3 id, uint3 gtid, float2 direction)
     }
     
     aoFiltered /= totalWeight;
-    
+
     AmbientOcclusionTarget[id] = aoFiltered;
     
-    /*
-    // Gaussian Kernel with sigma = 2
-    //const float discreteOffsets[5] = {0.0, 1.0, 2.0, 3.0, 4.0};
-    //const float discreteWeights[5] = {0.20236, 0.179044, 0.124009, 0.067234, 0.028532};
-    //float2 uvOffsets[5] = {discreteOffsets[0] * uvstep, discreteOffsets[1] * uvstep, discreteOffsets[2] * uvstep,
-    //    discreteOffsets[3] * uvstep, discreteOffsets[4] * uvstep};
-    
-    float centerTraceDistance = SampleTraceDistance(sampler_point_clamp, uv, id.z, 0.0);
-    AmbientOcclusion fAo = SampleAmbientOcclusion(sampler_point_clamp, uv, id.z, 0.0);
-    fAo.BentNormal *= linearWeights[0];
-    
-    fAo.SpecularOcclusion *= linearWeights[0];
-    float weight = linearWeights[0];
-    [unroll]
-    for (int i = 1; i < FilterSize; i++) {
-        [unroll]
-        for(int sign = -1; sign <= 1; sign += 2){
-            float traceDistance = SampleTraceDistance(sampler_point_clamp, uv + sign * uvOffsets[i], id.z, 0.0);
-            AmbientOcclusion ao = SampleAmbientOcclusion(sampler_point_clamp, uv + sign * uvOffsets[i], id.z, 0.0);
-            
-            float delta = centerTraceDistance - traceDistance; //TraceDistance Delta
-            float range = exp((-1.0 * delta * delta) / (2.0 * RangeSigma * RangeSigma));
-            
-            float rangeweight = linearWeights[i] * range;
-            
-            fAo.BentNormal += ao.BentNormal * rangeweight;
-            fAo.SpecularOcclusion += ao.SpecularOcclusion * rangeweight;
-            
-            weight += rangeweight;
-        }
-    }
-    
-    fAo.BentNormal /= weight;
-    fAo.SpecularOcclusion /= weight;
-    
-    AmbientOcclusionTarget[id] = float4(fAo.BentNormal, fAo.SpecularOcclusion);
-    */
 }
 
 [numthreads(ThreadsX, 1, ThreadsZ)]

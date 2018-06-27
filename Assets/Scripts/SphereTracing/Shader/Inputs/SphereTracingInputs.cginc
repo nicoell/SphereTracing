@@ -14,11 +14,13 @@ int MaterialCount;
 int SphereTracingSteps;
 bool EnableSuperSampling;
 
+StructuredBuffer<float3> AoSampleBuffer;
 bool EnableAmbientOcclusion;
 int AmbientOcclusionSamples;
 int AmbientOcclusionSteps;
 float AmbientOcclusionMaxDistance;
 float SpecularOcclusionStrength;
 float BentNormalFactor;
+float ConeAngle;
 
 #endif // SPHERETRACINGINPUT_INCLUDED

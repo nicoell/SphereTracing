@@ -1,6 +1,6 @@
-﻿#pragma kernel SphereTracingDownSampleH    ST_R     ST_LOW_RW    HIGH
-#pragma kernel SphereTracingDownSampleM    ST_R     ST_LOW_RW    MID
-#pragma kernel SphereTracingDownSampleL    ST_R     ST_LOW_RW    LOW
+﻿#pragma kernel SphereTracingDownSampleH    ST_R     ST_LOW_RW    HIGHDOWNSAMPLED
+#pragma kernel SphereTracingDownSampleM    ST_R     ST_LOW_RW    MIDDOWNSAMPLED
+#pragma kernel SphereTracingDownSampleL    ST_R     ST_LOW_RW    LOWDOWNSAMPLED
 
 
 #include "Defines/HighMidLowThreads.cginc"

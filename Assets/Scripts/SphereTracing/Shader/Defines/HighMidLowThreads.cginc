@@ -17,6 +17,20 @@
     #define ThreadsZ 1
 #endif
 
+#ifdef HIGHDOWNSAMPLED
+    #define ThreadsX 30
+    #define ThreadsY 27
+    #define ThreadsZ 1
+#elif MIDDOWNSAMPLED
+    #define ThreadsX 16
+    #define ThreadsY 15
+    #define ThreadsZ 1
+#elif LOWDOWNSAMPLED
+    #define ThreadsX 8
+    #define ThreadsY 5
+    #define ThreadsZ 1
+#endif
+
 #ifdef HIGH1D
     #define ThreadsX 640
     #define ThreadsY 360

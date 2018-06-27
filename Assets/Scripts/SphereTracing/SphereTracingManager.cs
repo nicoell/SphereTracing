@@ -24,6 +24,8 @@ namespace SphereTracing
 		private RenderTexture _deferredOutput;
 		private RenderTexture _sphereTracingData;
 		private RenderTexture _sphereTracingDataLow;
+
+		private ComputeBuffer _aoSampleBuffer;
 		
 		#region PublicVariables Adjustable in Editor
 
@@ -74,16 +76,14 @@ namespace SphereTracing
 		public float OcclusionExponent = 1.0f;
 		[Range(0f, 1f)]
 		public float BentNormalFactor = 1.0f;
+		[Range(0f, Mathf.PI * 2f)]
+		public float ConeAngle = 1.0f;
 		[Space(10)]
 		public bool EnableGlobalIllumination;
 		public bool EnableCrossBilateralFiltering;
-		[Range(0f, 10f)]
-		public float RangeSigma = 0.0051f;
 		[Range(1, 32)]
 		public int FilterSteps = 1;
 		[Space(10)]
-		[Range(0f, 10f)]
-		public float NearestDepthThreshold = 0.0051f;
 		[Space(10)]
 		[Tooltip("Control the resolution of ambient occlusion rendering.")]
 		public DeferredRenderTarget AmbientOcclusionDrt;
@@ -134,6 +134,8 @@ namespace SphereTracing
 			};
 			_sphereTracingDataLow.Create();
 			
+			
+			
 			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingFPassH",
 				"SphereTracingFPassM", "SphereTracingFPassL"); 
 			_sphereTracingKKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingKPassH",
@@ -151,11 +153,34 @@ namespace SphereTracing
 			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, 1, "DeferredH", "DeferredM", "DeferredL");
 			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, 1, "DeferredH", "DeferredM", "DeferredL");
 
+			GenerateAmbientOcclusionSamples();
+			
 			SetShaderPropertiesOnce();
 			InitLights();
 			InitMaterials();
 		}
 
+		private void GenerateAmbientOcclusionSamples()
+		{
+			const int samplesPerStep = 360;
+			int sampleCount = AmbientOcclusionSamples * samplesPerStep;
+			_aoSampleBuffer = new ComputeBuffer(sampleCount, 3 * sizeof(float), ComputeBufferType.Default);
+			var samples = new Vector3[sampleCount];
+			int c = 0;
+			for (int i = 0; i < AmbientOcclusionSamples; i++)
+			{
+				for (int deg = 0; deg < samplesPerStep; deg++)
+				{
+					deg *= 360 / samplesPerStep;
+					float rad = deg * Mathf.Deg2Rad;
+					var sample = Utils.Sampling.HemisphericalFibonacciMapping(i, AmbientOcclusionSamples, rad);
+					samples[c] = sample;
+					c++;
+				}
+			}
+			_aoSampleBuffer.SetData(samples);
+		}
+		
 		private void SetShaderPropertiesOnce()
 		{
 			Shader.SetGlobalFloat("AoTargetMip", AmbientOcclusionDrt.TargetMip);
@@ -184,6 +209,7 @@ namespace SphereTracing
 			{
 				AmbientOcclusionShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingDataLow);
 				AmbientOcclusionShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
+				AmbientOcclusionShader.SetBuffer(kernel.Id, "AoSampleBuffer", _aoSampleBuffer);
 			}
 			foreach (var kernel in _sphereTracingAoUpSamplerKernels)
 			{
@@ -213,13 +239,12 @@ namespace SphereTracing
 			//Note: Materials and Lights are set seperately in respective regions 
 			
 			//Set Properties global if possible for simplicity
-			Shader.SetGlobalFloat("RangeSigma", RangeSigma);
-			Shader.SetGlobalFloat("NearestDepthThreshold", NearestDepthThreshold);
 			Shader.SetGlobalFloat("OcclusionExponent", OcclusionExponent);
 			Shader.SetGlobalFloat("RadiusPixel", RadiusPixel);
 			Shader.SetGlobalFloat("AmbientOcclusionMaxDistance", AmbientOcclusionMaxDistance);
 			Shader.SetGlobalFloat("SpecularOcclusionStrength", SpecularOcclusionStrength);
 			Shader.SetGlobalFloat("BentNormalFactor", BentNormalFactor);
+			Shader.SetGlobalFloat("ConeAngle", ConeAngle);
 			Shader.SetGlobalInt("RenderOutput", (int) RenderOutput);
 			Shader.SetGlobalInt("SphereTracingSteps", SphereTracingSteps);
 			Shader.SetGlobalInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
@@ -320,7 +345,7 @@ namespace SphereTracing
 			{
 				Gizmos.color = Color.green;
 				Gizmos.DrawRay(Camera.main.transform.position, Camera.main.cameraToWorldMatrix.MultiplyVector(edge));
-			}
+			}			
 		}
 
 		/// <summary>

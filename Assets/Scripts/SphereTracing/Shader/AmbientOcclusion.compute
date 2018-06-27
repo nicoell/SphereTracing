@@ -1,6 +1,6 @@
-#pragma kernel AmbientOcclusionH    ST_R    AO_RW    AO       HIGH
-#pragma kernel AmbientOcclusionM    ST_R    AO_RW    AO       MID
-#pragma kernel AmbientOcclusionL    ST_R    AO_RW    AO       LOW
+#pragma kernel AmbientOcclusionH    ST_R    AO_RW    AO       HIGHDOWNSAMPLED
+#pragma kernel AmbientOcclusionM    ST_R    AO_RW    AO       MIDDOWNSAMPLED
+#pragma kernel AmbientOcclusionL    ST_R    AO_RW    AO       LOWDOWNSAMPLED
 
 #include "Defines/HighMidLowThreads.cginc"
 #include "Defines/SharedConstants.cginc"
@@ -46,7 +46,7 @@ void GetCoordinateSystem(in float3 normal, out float3 tangent, out float3 bitang
 {
     float3 up = abs(normal.y) < 0.999 ? float3(0, 1, 0) : float3(1,0,0);
     tangent = normalize( cross( up, normal ) );
-    bitangent = cross( normal, tangent );   
+    bitangent = normalize( cross( normal, tangent ) );   
 }
 
 float ApproxConeConeIntersection(float arcLength1, float arcLength2, float angleBetweenCones)
@@ -59,7 +59,7 @@ float ApproxConeConeIntersection(float arcLength1, float arcLength2, float angle
 
 float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
 {
-    float minSphereRadius = 0.04; //TODO: Causes artefacts if not small enough
+    float minSphereRadius = 0.0001; //TODO: Causes artefacts if not small enough
     float maxSphereRadius = 100.0;
 
     float minVisibility = 1.0;
@@ -79,8 +79,8 @@ float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
         float visibility = saturate(distance / sphereRadius);
         
         // Fade visibility based on distance
-        float distanceFraction = traceDistance / AmbientOcclusionMaxDistance;
-        visibility = max(visibility, saturate(distanceFraction * distanceFraction * 0.6f));
+        //float distanceFraction = traceDistance / AmbientOcclusionMaxDistance;
+        //visibility = max(visibility, saturate(distanceFraction * distanceFraction * 0.6f));
         
         minVisibility = min(minVisibility, visibility);
         traceDistance += max(distance, minStepSize);
@@ -102,26 +102,43 @@ float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
     float3 bitangent;
     GetCoordinateSystem(normal, tangent, bitangent);
     
-    float3 bentNormal = 0;
+    float3 bentNormal = float3(0, 0, 0);
     Ray coneRay;
-    coneRay.Origin = pos;
+    coneRay.Origin = pos + 0.001 * normal;
     
-    float tanConeAngle = tan((PI/4) / AmbientOcclusionSamples);             //TODO: Revisit
-    float rand = hash12(uv * 100.) * 2 * PI;
+    float tanConeAngle = tan(ConeAngle / AmbientOcclusionSamples);             //TODO: Revisit
+    //float rand = hash12(uv * 100.0) * 2 * PI;
+    //float rand = max(uv.x, uv.y) * 2 * PI;
+    int randInt = 360 * hash12(uv * 100);
+    //int randInt = 360 * (uv.x * uv.y);
     
     for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
     {
-        float3 cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
+        float3 cDir;
+        //if (uv.x < 0.5){
+        //cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
+        //} else {
+        cDir = AoSampleBuffer[ci * 360 + randInt];
+        //}
         float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * normal; //TODO: Possible error source
+        //Prevent self occlusion
+        cDirWorld = normalize(cDirWorld + normal * tanConeAngle);
         
         coneRay.Direction = cDirWorld;
         
         float cVisibility = GetConeVisibility(coneRay, tanConeAngle);
+        //cVisibility = 1;
         
         bentNormal += cVisibility * coneRay.Direction;
     }
     
-    bentNormal = bentNormal * (1.0 / (float) AmbientOcclusionSamples);
+    bentNormal /= AmbientOcclusionSamples;
+    //Add normalize factor to further reduce self occlusion  
+    const float nFactor = 7.0 / 255.0;
+    bentNormal *= AmbientOcclusionSamples < 3 ? 1.0 : 1.0 + nFactor * (AmbientOcclusionSamples) - nFactor;
+    //Since self occlusion is not perfectly linear we make it work perfect for 9 samples, which we use.
+    bentNormal *= AmbientOcclusionSamples == 9 ? 1.16 : 1.0;
+  
     
     return bentNormal;
 }
