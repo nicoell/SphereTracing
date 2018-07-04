@@ -19,176 +19,273 @@
 
 float3 SphericalFibonacciMapping(float i, float n, float rand)
 {
-    float phi = i * 2.0 * PI * GOLDENRATIO + rand;
-    float zi = 1.0 - (2.0*i+1.0)/(n);
-    float theta = sqrt(1.0 - zi*zi);
-    return float3( cos(phi) * theta, sin(phi) * theta, zi);
+	float phi = i * 2.0 * PI * GOLDENRATIO + rand;
+	float zi = 1.0 - (2.0*i+1.0)/(n);
+	float theta = sqrt(1.0 - zi*zi);
+	return float3( cos(phi) * theta, sin(phi) * theta, zi);
 }
 
 float3 HemisphericalFibonacciMapping(float i, float n, float rand)
 {
-    float phi = i * 2.0 * PI * GOLDENRATIO + rand;
-    float zi = 1.0 - (2.0*i+1.0)/(2*n);
-    float theta = sqrt(1.0 - zi*zi);
-    return normalize(float3( cos(phi) * theta, sin(phi) * theta, zi));
+	float phi = i * 2.0 * PI * GOLDENRATIO + rand;
+	float zi = 1.0 - (2.0*i+1.0)/(2*n);
+	float theta = sqrt(1.0 - zi*zi);
+	return normalize(float3( cos(phi) * theta, sin(phi) * theta, zi));
 }
 
 float3 UniformSampleHemisphere(float r1, float r2)
 {
-    float cosTheta = 2.0 * r1 - 1.0;
-    float sinTheta = sqrt(1.0 - r1 * r1);
-    float phi = 2 * PI * r2;
-    return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+	float cosTheta = 2.0 * r1 - 1.0;
+	float sinTheta = sqrt(1.0 - r1 * r1);
+	float phi = 2 * PI * r2;
+	return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 } 
 
+//Multiple Importance Sampling strategy
+float2 GenerateImportanceSample(in float r1, in float r2, in float phiRandomMin, in float phiRandomStep, in float thetaRandomMin, in float thetaRandomStep)
+{
+    //TODO: Maybe don't use stratification here
+    float csi1 = thetaRandomMin + r1 * thetaRandomStep; 
+    float csi2 = phiRandomMin + r2 * phiRandomStep;
+    float theta = asin(csi1);
+    float phi = PI2 * csi2;
+    return float2(theta, phi);
+}
+
+float2 GenerateStratifiedSample(in float r1, in float r2, in float phiRandomMin, in float phiRandomStep, in float thetaRandomMin, in float thetaRandomStep)
+{
+    float csi1 = thetaRandomMin + r1 * thetaRandomStep; 
+    float csi2 = phiRandomMin + r2 * phiRandomStep;
+    float theta = acos(1.0 - csi1);
+    float phi = PI2 * csi2;
+    return float2(theta, phi);
+}
+
+float GetPdf1(in float theta) { return 0.0001 + (cos(theta) * sin(theta)) / PI; }
+float GetPdf2(in float theta) { return 0.0001 + (sin(theta)) / PI2; }
+float BalanceHeuristic(in float pdf1, in float pdf2) { return pdf1 / (pdf1 + pdf2); }
+
+void MISImportanceSample(in float4 r, in float phiRandomMin, in float phiRandomStep, in float thetaRandomMin, in float thetaRandomStep,
+                         out float pdf1, out float pdf2, out float weight1, out float2 sample1, out float2 sample2)
+{
+    sample1 = GenerateImportanceSample(r.x, r.y, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
+    pdf1 = GetPdf1(sample1.x);
+    sample2 = GenerateStratifiedSample(r.z, r.w, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
+    pdf2 = GetPdf2(sample2.x);
+    weight1 = BalanceHeuristic(pdf1, pdf2);
+}
+
+void MISStratified(in float4 r, in float phiRandomMin, in float phiRandomStep, in float thetaRandomMin, in float thetaRandomStep,
+                         out float pdf3, out float pdf4, out float weight2, out float2 sample3, out float2 sample4)
+{
+    sample3 = GenerateStratifiedSample(r.x, r.y, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
+    pdf3 = GetPdf2(sample3.x);
+    sample4 = GenerateImportanceSample(r.z, r.w, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
+    pdf4 = GetPdf1(sample4.x);
+    weight2 = BalanceHeuristic(pdf4, pdf3);
+}
+
+float3 ConvertSphericalToCartesian(float r, float theta, float phi){
+    float sinTheta = sin(theta);
+    return r * float3(sinTheta * cos(phi), sinTheta * sin(phi), cos(theta));
+}
 
 void GetCoordinateSystem(in float3 normal, out float3 tangent, out float3 bitangent)
 {
-    float3 up = abs(normal.y) < 0.999 ? float3(0, 1, 0) : float3(1,0,0);
-    tangent = normalize( cross( up, normal ) );
-    bitangent = normalize( cross( normal, tangent ) );   
+	float3 up = abs(normal.y) < 0.999 ? float3(0, 1, 0) : float3(1,0,0);
+	tangent = normalize( cross( up, normal ) );
+	bitangent = normalize( cross( normal, tangent ) );   
 }
 
 float ApproxConeConeIntersection(float arcLength1, float arcLength2, float angleBetweenCones)
 {
-    float angleDiff = abs(arcLength1 - arcLength2);
-    
-    return smoothstep(0, 1,
-     1.0 - saturate((angleBetweenCones - angleDiff) / (arcLength1 + arcLength2 - angleDiff)));
+	float angleDiff = abs(arcLength1 - arcLength2);
+	
+	return smoothstep(0, 1,
+	 1.0 - saturate((angleBetweenCones - angleDiff) / (arcLength1 + arcLength2 - angleDiff)));
 }
 
 float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
 {
-    float minSphereRadius = 0.0001; //TODO: Causes artefacts if not small enough
-    float maxSphereRadius = 100.0;
+	float minSphereRadius = 0.0001; //TODO: Causes artefacts if not small enough
+	float maxSphereRadius = 100.0;
 
-    float minVisibility = 1.0;
-    float minDistance = 1000000;
-    float traceDistance = 0.1;
-    float minStepSize = 0;//1.0 / (4.0 * AmbientOcclusionSteps); //TODO: Also causes artefacts
-    
-    for(int step = 0; step < AmbientOcclusionSteps; step++)
-    {
-        float epsilon = 0.00015 * traceDistance;
-        float3 pointOnRay = coneRay.Origin + traceDistance * coneRay.Direction;
-        float distance = Map(pointOnRay).x;
-        
-        minDistance = min(minDistance, distance);
-        float sphereRadius = clamp(tanConeAngle * traceDistance, minSphereRadius, maxSphereRadius);
-        
-        float visibility = saturate(distance / sphereRadius);
-        
-        // Fade visibility based on distance
-        //float distanceFraction = traceDistance / AmbientOcclusionMaxDistance;
-        //visibility = max(visibility, saturate(distanceFraction * distanceFraction * 0.6f));
-        
-        minVisibility = min(minVisibility, visibility);
-        traceDistance += max(distance, minStepSize);
+	float minVisibility = 1.0;
+	float minDistance = 1000000;
+	float traceDistance = 0.1;
+	float minStepSize = 0;//1.0 / (4.0 * AmbientOcclusionSteps); //TODO: Also causes artefacts
+	
+	for(int step = 0; step < AmbientOcclusionSteps; step++)
+	{
+		float epsilon = 0.00015 * traceDistance;
+		float3 pointOnRay = coneRay.Origin + traceDistance * coneRay.Direction;
+		float distance = Map(pointOnRay).x;
+		
+		minDistance = min(minDistance, distance);
+		float sphereRadius = clamp(tanConeAngle * traceDistance, minSphereRadius, maxSphereRadius);
+		
+		float visibility = saturate(distance / sphereRadius);
+		
+		// Fade visibility based on distance
+		//float distanceFraction = traceDistance / AmbientOcclusionMaxDistance;
+		//visibility = max(visibility, saturate(distanceFraction * distanceFraction * 0.6f));
+		
+		minVisibility = min(minVisibility, visibility);
+		traceDistance += max(distance, minStepSize);
 
-        if (distance < epsilon || traceDistance > AmbientOcclusionMaxDistance) break;
-    }
-    
-    if (minDistance < 0 || step == AmbientOcclusionSteps)
-    {
-        minVisibility = 0;
-    }
-    
-    return minVisibility;
+		if (distance < epsilon || traceDistance > AmbientOcclusionMaxDistance) break;
+	}
+	
+	if (minDistance < 0 || step == AmbientOcclusionSteps)
+	{
+		minVisibility = 0;
+	}
+	
+	return minVisibility;
 }
 
 float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
 {
-    float3 tangent;
-    float3 bitangent;
-    GetCoordinateSystem(normal, tangent, bitangent);
-    
-    float3 bentNormal = float3(0, 0, 0);
-    Ray coneRay;
-    coneRay.Origin = pos + 0.001 * normal;
-    
-    float tanConeAngle = tan(ConeAngle / AmbientOcclusionSamples);             //TODO: Revisit
-    //float rand = hash12(uv * 100.0) * 2 * PI;
-    //float rand = max(uv.x, uv.y) * 2 * PI;
-    int randInt = 360 * hash12(uv * 100);
-    //int randInt = 360 * (uv.x * uv.y);
-    
-    for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
-    {
-        float3 cDir;
-        //if (uv.x < 0.5){
-        //cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
-        //} else {
-        cDir = AoSampleBuffer[ci * 360 + randInt];
-        //}
-        float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * normal; //TODO: Possible error source
-        //Prevent self occlusion
-        cDirWorld = normalize(cDirWorld + normal * tanConeAngle);
-        
-        coneRay.Direction = cDirWorld;
-        
-        float cVisibility = GetConeVisibility(coneRay, tanConeAngle);
-        //cVisibility = 1;
-        
-        bentNormal += cVisibility * coneRay.Direction;
-    }
-    
-    bentNormal /= AmbientOcclusionSamples;
-    //Add normalize factor to further reduce self occlusion  
-    const float nFactor = 7.0 / 255.0;
-    bentNormal *= AmbientOcclusionSamples < 3 ? 1.0 : 1.0 + nFactor * (AmbientOcclusionSamples) - nFactor;
-    //Since self occlusion is not perfectly linear we make it work perfect for 9 samples, which we use.
-    bentNormal *= AmbientOcclusionSamples == 9 ? 1.16 : 1.0;
-  
-    
-    return bentNormal;
+	float3 tangent;
+	float3 bitangent;
+	GetCoordinateSystem(normal, tangent, bitangent);
+	
+	float3 bentNormal = float3(0, 0, 0);
+	Ray coneRay;
+	coneRay.Origin = pos + 0.001 * normal;
+	
+	//float rand = hash12(uv * 100.0) * 2 * PI;
+	//float rand = max(uv.x, uv.y) * 2 * PI;
+	int randInt = 360 * hash12(uv * 100);
+	//int randInt = 360 * (uv.x * uv.y);
+	
+	if(EnableMultipleImportanceSampling == true)
+	{
+	    float tanConeAngle = tan(ConeAngle / (HemisphereStrata * SamplesPerStrata));             //TODO: Revisit
+	    const float phiRandomStep = 1.0 / HemisphereStrata;
+	    const float thetaRandomMin = 0.0;
+	    const float thetaRandomStep = 1.0;
+		//Divide the hemishpere into subsomains of n strata (n = HemisphereStrata)
+		for (int i = 0; i < HemisphereStrata; i++)
+		{
+		    float phiRandomMin = (float) i / HemisphereStrata; 
+			for (int k = 0; k < SamplesPerStrata; k++)
+			{
+                float2 sSamples[4];      //Sample in spherical coordinates
+                float3 cSamples[4];  //Sample in cartesian coordinates
+			    float pdf1, pdf2, pdf3, pdf4;
+			    float weight1, weight2;
+			    float4 randomNumbers = hash42(hash12(float2(i, k)) * 100 + uv * 100.0);
+			    MISImportanceSample (randomNumbers, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep, pdf1, pdf2, weight1, sSamples[0], sSamples[1]);
+			    MISStratified       (randomNumbers, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep, pdf3, pdf4, weight2, sSamples[2], sSamples[3]);
+
+			    float coneVisibilities[4];
+			    //float3 coneDirections[4];
+			    [unroll]
+			    for (int s = 0; s < 4; s++) {
+			        cSamples[s] = ConvertSphericalToCartesian(1.0, sSamples[s].x, sSamples[s].y);
+			        cSamples[s] = normalize(cSamples[s].y * bitangent + cSamples[s].x * tangent + cSamples[s].z * normal); //Convert to worldspace
+			        coneRay.Direction = cSamples[s]; 
+			        coneVisibilities[s] = GetConeVisibility(coneRay, tanConeAngle);
+			        //coneDirections[s] = cSamples[s];
+			    }
+			    
+			    float3 contributionImportanceSample;
+			    float3 contributionStratifiedSample;
+			    
+			    contributionImportanceSample = cSamples[0] * (coneVisibilities[0] / pdf1) + cSamples[1] * (coneVisibilities[1] / pdf2);
+			    contributionImportanceSample *= weight1;
+			    //contributionImportanceSample /= 4;
+			    
+			    contributionStratifiedSample = cSamples[2] * (coneVisibilities[2] / pdf3) + cSamples[3] * (coneVisibilities[3] / pdf4);
+			    contributionStratifiedSample *= weight2; 
+			    //contributionStratifiedSample /= 4;
+			    
+			    //bentNormal += contributionImportanceSample;
+			    //bentNormal += contributionStratifiedSample;
+			    bentNormal += contributionImportanceSample + contributionStratifiedSample;
+			}
+		}
+		bentNormal /= (HemisphereStrata * SamplesPerStrata);
+	} else {
+	    float tanConeAngle = tan(ConeAngle / AmbientOcclusionSamples);             //TODO: Revisit
+		for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
+		{
+			float3 cDir;
+			//if (uv.x < 0.5){
+			//cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
+			//} else {
+			cDir = AoSampleBuffer[ci * 360 + randInt];
+			//}
+			float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * normal; //TODO: Possible error source
+			//Prevent self occlusion
+			cDirWorld = normalize(cDirWorld + normal * tanConeAngle);
+			
+			coneRay.Direction = cDirWorld;
+			
+			float cVisibility = GetConeVisibility(coneRay, tanConeAngle);
+			//cVisibility = 1;
+			
+			bentNormal += cVisibility * coneRay.Direction;
+		}
+		
+		bentNormal /= AmbientOcclusionSamples;
+		//Add normalize factor to further reduce self occlusion  
+		const float nFactor = 7.0 / 255.0;
+		bentNormal *= AmbientOcclusionSamples < 3 ? 1.0 : 1.0 + nFactor * (AmbientOcclusionSamples) - nFactor;
+		//Since self occlusion is not perfectly linear we make it work perfect for 9 samples, which we use.
+		bentNormal *= AmbientOcclusionSamples == 9 ? 1.16 : 1.0;
+	}
+	
+	return bentNormal;
 }
 
 void ComputeAO(in float2 uv, in float3 pos, in float3 dir, in float3 normal, in float reflectiveF, out float3 bentNormal, out float specularOcclusion)
 {
-    //TODO: Improve ao factor computation
-    bentNormal = ComputeBentNormal(uv,pos,normal);
-    bentNormal = lerp(normal, bentNormal, BentNormalFactor);
-    float bentNormalLength = length(bentNormal);
-    float reflectionConeAngle = max(reflectiveF, 0.1) * PI;
-    float unoccludedAngle = bentNormalLength * PI * SpecularOcclusionStrength;
-    float angleBetween = acos(dot(bentNormal, reflect(dir, normal) / max(bentNormalLength, 0.001)));
-    specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);
-    specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
+	//TODO: Improve ao factor computation
+	bentNormal = ComputeBentNormal(uv,pos,normal);
+	bentNormal = lerp(normal, bentNormal, BentNormalFactor);
+	float bentNormalLength = length(bentNormal);
+	float reflectionConeAngle = max(reflectiveF, 0.1) * PI;
+	float unoccludedAngle = bentNormalLength * PI * SpecularOcclusionStrength;
+	float angleBetween = acos(dot(bentNormal, reflect(dir, normal) / max(bentNormalLength, 0.001)));
+	specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);
+	specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
 }
 
 void CalcAO(uint3 id)
 {
-    float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
-    
-    SphereTracingData surface = SampleSphereTracingData(sampler_point_clamp, uv, 0, 0);
+	float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
+	
+	SphereTracingData surface = SampleSphereTracingData(sampler_point_clamp, uv, 0, 0);
 	SphereTracingData represent = SampleSphereTracingData(sampler_point_clamp, uv, 1, 0);
 	AmbientOcclusion surfaceAo;
 	AmbientOcclusion representAo;
-    
-    //Sample SphereTracingData from surface and represent
-    
-    
-    
-    //Do not calculate ao if a surface' alpha doesn't have an impact
-    if (sign(surface.MaterialId) >= 0) {
-        StMaterial surfaceMat = MaterialBuffer[surface.MaterialId];
-        ComputeAO(uv, surface.Position, (surface.RayDirection), normalize(surface.Normal), surfaceMat.ReflectiveF,
-            surfaceAo.BentNormal, surfaceAo.SpecularOcclusion);
-    } else {
-        surfaceAo.BentNormal = (float3) 0;
-        surfaceAo.SpecularOcclusion = 0;
-    }
-    if (represent.Alpha > ALPHAEPSILON) {
-        StMaterial representMat = MaterialBuffer[represent.MaterialId];
-        ComputeAO(uv, represent.Position, represent.RayDirection, represent.Normal, representMat.ReflectiveF, 
-            representAo.BentNormal, representAo.SpecularOcclusion);
-    } else {
-        representAo.BentNormal = (float3) 0;
-        representAo.SpecularOcclusion = 0;
-    }
-             
-    WriteAmbientOcclusion(id.xy, 0, surfaceAo);
-    WriteAmbientOcclusion(id.xy, 1, representAo);
+	
+	//Sample SphereTracingData from surface and represent
+	
+	
+	
+	//Do not calculate ao if a surface' alpha doesn't have an impact
+	if (sign(surface.MaterialId) >= 0) {
+		StMaterial surfaceMat = MaterialBuffer[surface.MaterialId];
+		ComputeAO(uv, surface.Position, (surface.RayDirection), normalize(surface.Normal), surfaceMat.ReflectiveF,
+			surfaceAo.BentNormal, surfaceAo.SpecularOcclusion);
+	} else {
+		surfaceAo.BentNormal = (float3) 0;
+		surfaceAo.SpecularOcclusion = 0;
+	}
+	if (represent.Alpha > ALPHAEPSILON) {
+		StMaterial representMat = MaterialBuffer[represent.MaterialId];
+		ComputeAO(uv, represent.Position, represent.RayDirection, represent.Normal, representMat.ReflectiveF, 
+			representAo.BentNormal, representAo.SpecularOcclusion);
+	} else {
+		representAo.BentNormal = (float3) 0;
+		representAo.SpecularOcclusion = 0;
+	}
+			 
+	WriteAmbientOcclusion(id.xy, 0, surfaceAo);
+	WriteAmbientOcclusion(id.xy, 1, representAo);
 }
 
 [numthreads(ThreadsX, ThreadsY, ThreadsZ)]

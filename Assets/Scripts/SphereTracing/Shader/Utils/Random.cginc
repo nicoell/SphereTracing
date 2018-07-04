@@ -54,4 +54,13 @@ float3 hash31(float n)
 	return frac(sin(n+float3(0.0, 13.1, 31.3)) * 158.5453123);
 }
 
+float4 hash42(float2 p)
+{
+	float4 p4 = frac(float4(p.xyxy) * HASHSCALE4);
+    p4 += dot(p4, p4.wzxy+19.19);
+    return frac((p4.xxyz+p4.yzzw)*p4.zywx);
+
+}
+
+
 #endif //RANDOM_INCLUDED

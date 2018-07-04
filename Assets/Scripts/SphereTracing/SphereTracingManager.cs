@@ -84,6 +84,10 @@ namespace SphereTracing
 		[Range(1, 32)]
 		public int FilterSteps = 1;
 		[Space(10)]
+		public bool EnableMultipleImportanceSampling;
+		public int HemisphereStrata = 6;
+		public int SamplesPerStrata = 2;
+		[Space(10)]
 		[Space(10)]
 		[Tooltip("Control the resolution of ambient occlusion rendering.")]
 		public DeferredRenderTarget AmbientOcclusionDrt;
@@ -249,6 +253,8 @@ namespace SphereTracing
 			Shader.SetGlobalInt("SphereTracingSteps", SphereTracingSteps);
 			Shader.SetGlobalInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
 			Shader.SetGlobalInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
+			Shader.SetGlobalInt("HemisphereStrata", HemisphereStrata);
+			Shader.SetGlobalInt("SamplesPerStrata", SamplesPerStrata);
 			Shader.SetGlobalVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
 			Shader.SetGlobalVector("CameraPos", Camera.main.transform.position);
 			Shader.SetGlobalVector("CameraDir", Camera.main.transform.forward);
@@ -258,12 +264,13 @@ namespace SphereTracing
 			Shader.SetGlobalMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
 			
 			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
-			var computeShaders = new[] { SphereTracingShader, BilateralFilterShader, DeferredShader};
+			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionShader, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
 			foreach (var computeShader in computeShaders)
 			{
 				computeShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
 				computeShader.SetBool("EnableSuperSampling", EnableSuperSampling);
 				computeShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
+				computeShader.SetBool("EnableMultipleImportanceSampling", EnableMultipleImportanceSampling);
 				computeShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
 			}
 			
@@ -372,6 +379,7 @@ namespace SphereTracing
 		{
 			if (_stLightBuffer != null) _stLightBuffer.Release();
 			if (_stMaterialBuffer != null) _stMaterialBuffer.Release();
+			if (_aoSampleBuffer != null) _aoSampleBuffer.Release();
 			if (_deferredOutput != null) DestroyImmediate(_deferredOutput);
 			if (_sphereTracingData != null) DestroyImmediate(_sphereTracingData);
 			if (_sphereTracingDataLow != null) DestroyImmediate(_sphereTracingDataLow);

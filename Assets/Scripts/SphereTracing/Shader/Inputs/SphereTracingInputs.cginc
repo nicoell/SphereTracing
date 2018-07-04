@@ -22,5 +22,8 @@ float AmbientOcclusionMaxDistance;
 float SpecularOcclusionStrength;
 float BentNormalFactor;
 float ConeAngle;
+bool EnableMultipleImportanceSampling;
+int HemisphereStrata;
+int SamplesPerStrata;
 
 #endif // SPHERETRACINGINPUT_INCLUDED
