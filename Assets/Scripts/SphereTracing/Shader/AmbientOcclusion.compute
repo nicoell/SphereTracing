@@ -41,51 +41,6 @@ float3 UniformSampleHemisphere(float r1, float r2)
 	return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 } 
 
-//Multiple Importance Sampling strategy
-float2 GenerateImportanceSample(in float r1, in float r2, in float phiRandomMin, in float phiRandomStep, in float thetaRandomMin, in float thetaRandomStep)
-{
-    //TODO: Maybe don't use stratification here
-    float csi1 = thetaRandomMin + r1 * thetaRandomStep; 
-    float csi2 = phiRandomMin + r2 * phiRandomStep;
-    float theta = asin(csi1);
-    float phi = PI2 * csi2;
-    return float2(theta, phi);
-}
-
-float2 GenerateStratifiedSample(in float r1, in float r2, in float phiRandomMin, in float phiRandomStep, in float thetaRandomMin, in float thetaRandomStep)
-{
-    float csi1 = thetaRandomMin + r1 * thetaRandomStep; 
-    float csi2 = phiRandomMin + r2 * phiRandomStep;
-    float theta = acos(1.0 - csi1);
-    float phi = PI2 * csi2;
-    return float2(theta, phi);
-}
-
-float GetPdf1(in float theta) { return 0.0001 + (cos(theta) * sin(theta)) / PI; }
-float GetPdf2(in float theta) { return 0.0001 + (sin(theta)) / PI2; }
-float BalanceHeuristic(in float pdf1, in float pdf2) { return pdf1 / (pdf1 + pdf2); }
-
-void MISImportanceSample(in float2 stratifiedSample, in float2 importanceSample,
-                         out float pdf1, out float pdf2, out float weight1)
-{
-    pdf1 = GetPdf1(importanceSample.x);
-    pdf2 = GetPdf2(stratifiedSample.x);
-    weight1 = BalanceHeuristic(pdf1, pdf2);
-}
-
-void MISStratified(in float2 stratifiedSample, in float2 importanceSample,
-                         out float pdf3, out float pdf4, out float weight2)
-{
-    pdf3 = GetPdf2(stratifiedSample.x);
-    pdf4 = GetPdf1(importanceSample.x);
-    weight2 = BalanceHeuristic(pdf4, pdf3);
-}
-
-float3 ConvertSphericalToCartesian(float r, float theta, float phi){
-    float sinTheta = sin(theta);
-    return r * float3(sinTheta * cos(phi), sinTheta * sin(phi), cos(theta));
-}
-
 void GetCoordinateSystem(in float3 normal, out float3 tangent, out float3 bitangent)
 {
 	float3 up = abs(normal.y) < 0.999 ? float3(0, 1, 0) : float3(1,0,0);
@@ -109,7 +64,7 @@ float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
 	float minVisibility = 1.0;
 	float minDistance = 1000000;
 	float traceDistance = 0.1;
-	float minStepSize = 0;//1.0 / (4.0 * AmbientOcclusionSteps); //TODO: Also causes artefacts
+	float minStepSize = AmbientOcclusionMaxDistance / (AmbientOcclusionSteps); //TODO: Also causes artefacts
 	
 	for(int step = 0; step < AmbientOcclusionSteps; step++)
 	{
@@ -123,8 +78,8 @@ float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
 		float visibility = saturate(distance / sphereRadius);
 		
 		// Fade visibility based on distance
-		//float distanceFraction = traceDistance / AmbientOcclusionMaxDistance;
-		//visibility = max(visibility, saturate(distanceFraction * distanceFraction * 0.6f));
+		float distanceFraction = traceDistance / AmbientOcclusionMaxDistance;
+		visibility = max(visibility, saturate(distanceFraction * distanceFraction * 0.6f));
 		
 		minVisibility = min(minVisibility, visibility);
 		traceDistance += max(distance, minStepSize);
@@ -150,89 +105,38 @@ float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
 	Ray coneRay;
 	coneRay.Origin = pos + 0.001 * normal;
 	
-	//float rand = hash12(uv * 100.0) * 2 * PI;
+	float rand = hash12(uv * 100.0) * 2 * PI;
 	//float rand = max(uv.x, uv.y) * 2 * PI;
 	int randInt = 360 * hash12(uv * 100);
 	//int randInt = 360 * (uv.x * uv.y);
-	
-	if(EnableMultipleImportanceSampling == true)
-	{
-	    float tanConeAngle = tan(ConeAngle / (HemisphereStrata * SamplesPerStrata));             //TODO: Revisit
-	    const float phiRandomStep = 1.0 / HemisphereStrata;
-	    const float thetaRandomMin = 0.0;
-	    const float thetaRandomStep = 1.0;
-		//Divide the hemishpere into subsomains of n strata (n = HemisphereStrata)
-		for (int i = 0; i < HemisphereStrata; i++)
-		{
-		    float phiRandomMin = (float) i / HemisphereStrata; 
-			for (int k = 0; k < SamplesPerStrata; k++)
-			{
-                float2 sSamples[2];      //Sample in spherical coordinates
-                float3 cSamples[2];  //Sample in cartesian coordinates
-			    float pdf1, pdf2, pdf3, pdf4;
-			    float weight1, weight2;
-			    float4 r = hash42(hash12(float2(i, k)) * 100 + uv * 100.0);
-			    sSamples[0] = GenerateStratifiedSample(r.x, r.y, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
-                sSamples[1] = GenerateImportanceSample(r.z, r.w, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
-			    MISImportanceSample (sSamples[0],  sSamples[1], pdf1, pdf2, weight1);
-			    MISStratified       (sSamples[0],  sSamples[1], pdf3, pdf4, weight2);
 
-			    float coneVisibilities[2];
-			    [unroll]
-			    for (int s = 0; s < 2; s++) {
-			        cSamples[s] = ConvertSphericalToCartesian(1.0, sSamples[s].x, sSamples[s].y);
-			        cSamples[s] = normalize(cSamples[s].y * bitangent + cSamples[s].x * tangent + cSamples[s].z * normal); //Convert to worldspace
-			        coneRay.Direction = cSamples[s]; 
-			        coneVisibilities[s] = GetConeVisibility(coneRay, tanConeAngle);
-			        //coneDirections[s] = cSamples[s];
-			    }
-			    
-			    float3 contributionImportanceSample;
-			    float3 contributionStratifiedSample;
-			    
-			    contributionImportanceSample = cSamples[0] * (coneVisibilities[0] / pdf1);
-			    contributionImportanceSample *= weight1;
-			    //contributionImportanceSample /= 4;
-			    
-			    contributionStratifiedSample = cSamples[1] * (coneVisibilities[1] / pdf3);
-			    contributionStratifiedSample *= weight2; 
-			    //contributionStratifiedSample /= 4;
-			    
-			    //bentNormal += contributionImportanceSample;
-			    //bentNormal += contributionStratifiedSample;
-			    bentNormal += (contributionImportanceSample + contributionStratifiedSample) / 4;
-			}
-		}
-		bentNormal /= (HemisphereStrata * SamplesPerStrata);
-	} else {
-	    float tanConeAngle = tan(ConeAngle / AmbientOcclusionSamples);             //TODO: Revisit
-		for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
-		{
-			float3 cDir;
-			//if (uv.x < 0.5){
-			//cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
-			//} else {
-			cDir = AoSampleBuffer[ci * 360 + randInt];
-			//}
-			float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * normal; //TODO: Possible error source
-			//Prevent self occlusion
-			cDirWorld = normalize(cDirWorld + normal * tanConeAngle);
-			
-			coneRay.Direction = cDirWorld;
-			
-			float cVisibility = GetConeVisibility(coneRay, tanConeAngle);
-			//cVisibility = 1;
-			
-			bentNormal += cVisibility * coneRay.Direction;
-		}
-		
-		bentNormal /= AmbientOcclusionSamples;
-		//Add normalize factor to further reduce self occlusion  
-		const float nFactor = 7.0 / 255.0;
-		bentNormal *= AmbientOcclusionSamples < 3 ? 1.0 : 1.0 + nFactor * (AmbientOcclusionSamples) - nFactor;
-		//Since self occlusion is not perfectly linear we make it work perfect for 9 samples, which we use.
-		bentNormal *= AmbientOcclusionSamples == 9 ? 1.16 : 1.0;
-	}
+    float tanConeAngle = tan(ConeAngle / AmbientOcclusionSamples);             //TODO: Revisit
+    for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
+    {
+        float3 cDir;
+        //if (uv.x < 0.5){
+        cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
+        //} else {
+        //float2 r2 = hash22(ci * 100.0 + uv * 100.0);
+        //cDir = UniformSampleHemisphere(r2.x, r2.y);
+        //}
+        float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * normal; //TODO: Possible error source
+        
+        coneRay.Direction = cDirWorld;
+        
+        float cVisibility = GetConeVisibility(coneRay, tanConeAngle);
+        //cVisibility = 1;
+        
+        bentNormal += cVisibility * coneRay.Direction;
+    }
+    
+    bentNormal /= AmbientOcclusionSamples;
+    //Add normalize factor to further reduce self occlusion  
+    const float nFactor = 7.0 / 255.0;
+    bentNormal *= AmbientOcclusionSamples < 3 ? 1.0 : 1.0 + nFactor * (AmbientOcclusionSamples) - nFactor;
+    //Since self occlusion is not perfectly linear we make it work perfect for 9 samples, which we use.
+    bentNormal *= AmbientOcclusionSamples == 9 ? 1.16 : 1.0;
+	
 	
 	return bentNormal;
 }

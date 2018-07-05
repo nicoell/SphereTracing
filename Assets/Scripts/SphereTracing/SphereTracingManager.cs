@@ -83,11 +83,7 @@ namespace SphereTracing
 		public bool EnableCrossBilateralFiltering;
 		[Range(1, 32)]
 		public int FilterSteps = 1;
-		[Space(10)]
-		public bool EnableMultipleImportanceSampling;
-		public int HemisphereStrata = 6;
-		public int SamplesPerStrata = 2;
-		[Space(10)]
+
 		[Space(10)]
 		[Tooltip("Control the resolution of ambient occlusion rendering.")]
 		public DeferredRenderTarget AmbientOcclusionDrt;
@@ -166,17 +162,18 @@ namespace SphereTracing
 
 		private void GenerateAmbientOcclusionSamples()
 		{
-			const int sampleCount = 360;
-			//Create 360 samples, one for each degree 0 <= degree < 360
+			const int samplesPerStep = 360;
+			int sampleCount = AmbientOcclusionSamples * samplesPerStep;
 			_aoSampleBuffer = new ComputeBuffer(sampleCount, 3 * sizeof(float), ComputeBufferType.Default);
 			var samples = new Vector3[sampleCount];
 			int c = 0;
 			for (int i = 0; i < AmbientOcclusionSamples; i++)
 			{
-				for (int deg = 0; deg < sampleCount; deg++)
+				for (int deg = 0; deg < samplesPerStep; deg++)
 				{
+					deg *= 360 / samplesPerStep;
 					float rad = deg * Mathf.Deg2Rad;
-					var sample = Utils.Sampling.HemisphericalFibonacciMapping(i, AmbientOcclusionSamples, rad, Mathf.Tan(ConeAngle / AmbientOcclusionSamples));
+					var sample = Utils.Sampling.HemisphericalFibonacciMapping(i, AmbientOcclusionSamples, rad);
 					samples[c] = sample;
 					c++;
 				}
@@ -252,8 +249,6 @@ namespace SphereTracing
 			Shader.SetGlobalInt("SphereTracingSteps", SphereTracingSteps);
 			Shader.SetGlobalInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
 			Shader.SetGlobalInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
-			Shader.SetGlobalInt("HemisphereStrata", HemisphereStrata);
-			Shader.SetGlobalInt("SamplesPerStrata", SamplesPerStrata);
 			Shader.SetGlobalVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
 			Shader.SetGlobalVector("CameraPos", Camera.main.transform.position);
 			Shader.SetGlobalVector("CameraDir", Camera.main.transform.forward);
@@ -269,7 +264,6 @@ namespace SphereTracing
 				computeShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
 				computeShader.SetBool("EnableSuperSampling", EnableSuperSampling);
 				computeShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
-				computeShader.SetBool("EnableMultipleImportanceSampling", EnableMultipleImportanceSampling);
 				computeShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
 			}
 			
