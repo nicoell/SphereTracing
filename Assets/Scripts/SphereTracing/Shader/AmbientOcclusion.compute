@@ -25,10 +25,11 @@ float3 SphericalFibonacciMapping(float i, float n, float rand)
 	return float3( cos(phi) * theta, sin(phi) * theta, zi);
 }
 
-float3 HemisphericalFibonacciMapping(float i, float n, float rand)
+float3 HemisphericalFibonacciMapping(float i, float n, float rand, float minZ)
 {
 	float phi = i * 2.0 * PI * GOLDENRATIO + rand;
 	float zi = 1.0 - (2.0*i+1.0)/(2*n);
+	zi = max(zi, minZ);
 	float theta = sqrt(1.0 - zi*zi);
 	return normalize(float3( cos(phi) * theta, sin(phi) * theta, zi));
 }
@@ -115,8 +116,9 @@ float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
     {
         float3 cDir;
         //if (uv.x < 0.5){
-        cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand);
+        cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand, tanConeAngle);
         //} else {
+        //cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand, 0);
         //float2 r2 = hash22(ci * 100.0 + uv * 100.0);
         //cDir = UniformSampleHemisphere(r2.x, r2.y);
         //}
