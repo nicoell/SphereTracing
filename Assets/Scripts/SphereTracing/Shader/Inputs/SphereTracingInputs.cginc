@@ -7,7 +7,6 @@ StructuredBuffer<StMaterial> MaterialBuffer;
 
 float4 CameraFrustumEdgeVectors[4];         //Array of the cameras frustum edge vectors, clockwise beginning in the topleft.
 float4x4 CameraInverseViewMatrix;       
-float3 CameraPos;
 
 float RadiusPixel;
 int MaterialCount;

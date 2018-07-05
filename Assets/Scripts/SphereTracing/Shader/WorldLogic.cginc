@@ -97,19 +97,24 @@ float4x4(1, 0, 0, -5,
 0, 0, 0, 1); 
  
 //Objects in the world.
-float PlateTexture(float3 pos, float dist, float size, float depth)
+float PlateTexture(float3 pos, uniform float4 plateSettings)
 {   
+    float distanceToCamera = length(pos - CameraPos);
+    if (distanceToCamera > plateSettings.w) return 0;
+     
     float disp = 0;
+    float dist = plateSettings.x;
+    float size = plateSettings.y;
+    float depth = plateSettings.z;
+    
+    float m = min(min(abs(pos.x) % dist, abs(pos.y) % dist), abs(pos.z) % dist);
+    disp += (m < size) ? depth : 0;
 
-    disp += (pos.x%dist < size) ? depth : 0;
-    disp += (pos.y%dist < size) ? depth : 0;
-    disp += (pos.z%dist < size) ? depth : 0;
-
-    return disp;
+    return disp * (1 - saturate(length(pos - CameraPos) / plateSettings.w));
 }
 
 float2 FloorPlane(in float3 pos, in float offset, in float mat){
-    return float2(pos.y + offset + PlateTexture(pos, 1.0, .0075, .0025), mat);
+    return float2(pos.y + offset + PlateTexture(pos, PlateTextureSettings), mat);
 }
 
 float2 Cylinder(float3 pos, float2 h, float4x4 M, float mat)
@@ -159,7 +164,7 @@ float2 Map(in float3 pos)
     wall = opU(wall, Box(pos, float3(9,.5,3), M_ROOF, MAT_FLOOR));
 
     res = opU(floor, wall);
-    res.x += PlateTexture(pos, 1.0, .0075, .0025);
+    res.x += PlateTexture(pos, PlateTextureSettings);
 
 
     

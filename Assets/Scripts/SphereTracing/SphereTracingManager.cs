@@ -61,6 +61,8 @@ namespace SphereTracing
 		public bool EnableSuperSampling;
 		public int LightCount = 1;
 		public Color ClearColor = Color.black;
+		[Tooltip("x: Gap Distance, y: Size, z: Depth, w: VisibleRange")]
+		public Vector4 PlateTextureSettings = new Vector4(1.0f, .0075f, .0025f, 20f);
 		
 		[Header("Ambient Occlusion")]
 		public bool EnableAmbientOcclusion;
@@ -257,6 +259,7 @@ namespace SphereTracing
 			Shader.SetGlobalVector("CameraPos", Camera.main.transform.position);
 			Shader.SetGlobalVector("CameraDir", Camera.main.transform.forward);
 			Shader.SetGlobalVector("GammaCorrection", GammaCorrection);
+			Shader.SetGlobalVector("PlateTextureSettings", PlateTextureSettings);
 			Shader.SetGlobalColor("ClearColor", ClearColor);
 			Shader.SetGlobalVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 			Shader.SetGlobalMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
