@@ -27,7 +27,7 @@ namespace Utils
 					new Vector4(0f, Mathf.Cos(r.x), -Mathf.Sin(r.x), 0f),
 					new Vector4(0f, Mathf.Sin(r.x), Mathf.Cos(r.x), 0f), new Vector4(0f, 0f, 0f, 1f));
 
-				txm[i] = rx * tm;
+				txm[i] = tm * rx;
 
 				hlslOut += "static const float4x4 " + MatrixNames[i] + " =\nfloat4x4(";
 				for (var row = 0; row < 4; row++)
