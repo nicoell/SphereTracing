@@ -84,6 +84,10 @@ namespace SphereTracing
 		[Range(1, 32)]
 		public int FilterSteps = 1;
 
+		[Header("Cubemap")]
+		public bool EnableCubemap;
+		public Cubemap Cubemap;
+
 		[Space(10)]
 		[Tooltip("Control the resolution of ambient occlusion rendering.")]
 		public DeferredRenderTarget AmbientOcclusionDrt;
@@ -133,7 +137,6 @@ namespace SphereTracing
 				volumeDepth = 6
 			};
 			_sphereTracingDataLow.Create();
-			
 			
 			
 			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingFPassH",
@@ -231,6 +234,7 @@ namespace SphereTracing
 				DeferredShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
 				DeferredShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
 				DeferredShader.SetTexture(kernel.Id, "DeferredOutputTexture", _deferredOutput);
+				DeferredShader.SetTexture(kernel.Id, "Cubemap", Cubemap);
 			}
 		}
 
@@ -264,6 +268,7 @@ namespace SphereTracing
 				computeShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
 				computeShader.SetBool("EnableSuperSampling", EnableSuperSampling);
 				computeShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
+				computeShader.SetBool("EnableCubemap", EnableCubemap);
 				computeShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
 			}
 			

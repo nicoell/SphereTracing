@@ -11,6 +11,10 @@ float4 ClearColor;
 bool EnableAmbientOcclusion;
 bool EnableGlobalIllumination;
 
+bool EnableCubemap;
+TextureCube<float4> Cubemap;
+SamplerState sampler_Cubemap;
+
 StructuredBuffer<StMaterial> MaterialBuffer;
 int MaterialCount;
 StructuredBuffer<StLight> LightBuffer;

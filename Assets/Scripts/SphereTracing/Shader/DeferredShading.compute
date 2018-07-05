@@ -149,7 +149,12 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
 	    Ray r;
 	    r.Origin = float3(0,0,0);
 	    r.Direction = surface.RayDirection;
-	    skyColor += Background(r) * surface.Alpha ;
+	    if (EnableCubemap){
+	        skyColor += Cubemap.SampleLevel(sampler_Cubemap, r.Direction, 0);
+	    } else {
+	        //Use prodecural sky generation if cubemap is not enabled. Expensive!
+	        skyColor += Background(r) * surface.Alpha ;
+	    }
 	    
 	}
 	//Gamma correct colors
