@@ -11,6 +11,91 @@
 #define MAT_BLUE 2
 #define MAT_FLOOR 3
 
+//Baked Matrices
+static const float4x4 M_LEFTWALL =
+float4x4(1, 0, 0, 2, 
+0, 1, 0, 6, 
+0, 0, 1, 0, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_WALLHOLE1 =
+float4x4(1, 0, 0, -6, 
+0, -4.371139E-08, -1, 6, 
+0, 1, -4.371139E-08, 0, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_WALLHOLE2 =
+float4x4(1, 0, 0, -2.5, 
+0, -4.371139E-08, -1, 6, 
+0, 1, -4.371139E-08, 0, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_WALLHOLE3 =
+float4x4(1, 0, 0, 1, 
+0, -4.371139E-08, -1, 6, 
+0, 1, -4.371139E-08, 0, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_LEFTWALL2 =
+float4x4(1, 0, 0, -8, 
+0, 1, 0, 6, 
+0, 0, 1, 9, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_RIGHTWALL =
+float4x4(1, 0, 0, 2, 
+0, 1, 0, 6, 
+0, 0, 1, -6, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_ROOF =
+float4x4(1, 0, 0, 3, 
+0, 1, 0, 4.5, 
+0, 0, 1, -2, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR1 =
+float4x4(1, 0, 0, 10, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR2 =
+float4x4(1, 0, 0, 7, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR3 =
+float4x4(1, 0, 0, 4, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR4 =
+float4x4(1, 0, 0, 1, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR5 =
+float4x4(1, 0, 0, -2, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR6 =
+float4x4(1, 0, 0, -5, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_SPHERE =
+float4x4(1, 0, 0, -5, 
+0, 1, 0, 7, 
+0, 0, 1, -4, 
+0, 0, 0, 1); 
+ 
 //Objects in the world.
 float PlateTexture(float3 pos, float dist, float size, float depth)
 {   
@@ -58,6 +143,10 @@ float2 PlaneTest(in float3 pos)
    	float plane = sdBox(pt, float3(400.0,2.0,400.0));
     plane += PlateTexture(pos, 1.0, .0075, .0025);
 	return float2(plane, MAT_FLOOR); 
+}
+
+float2 FloorPlane(in float3 pos, in float offset, in float mat){
+    return float2(pos.y + offset + PlateTexture(pos, 1.0, .0075, .0025), mat);
 }
 
 
@@ -114,6 +203,24 @@ float2 Sphere(float3 pos, float rad, float3 t, float3 r, float mat)
     return float2(sdSphere(pos, rad), mat);
 }
 
+float2 Cylinder(float3 pos, float2 h, float4x4 M, float mat)
+{
+    pos = opTx(pos, M);
+    return float2(sdCappedCylinder(pos, h), mat);
+}
+
+float2 Box(float3 pos, float3 d, float4x4 M, float mat)
+{
+    pos = opTx(pos, M);
+    return float2(sdBox(pos, d), mat);
+}
+
+float2 Sphere(float3 pos, float rad, float4x4 M, float mat)
+{
+    pos = opTx(pos, M);
+    return float2(sdSphere(pos, rad), mat);
+}
+
 
 /*
  *  Map
@@ -124,6 +231,45 @@ float2 Sphere(float3 pos, float rad, float3 t, float3 r, float mat)
  *      y: MaterialID of object in world.
  */
 float2 Map(in float3 pos)
+{   
+	float2 res;
+    //floor
+	//float2 floor = FloorPlane(pos, 8, MAT_FLOOR);
+	float2 floor = PlaneTest(pos);
+	//return floor;
+    //left wall
+    float2 wall = Box(pos, float3(10,2,1), M_LEFTWALL, MAT_FLOOR);
+    //leftwall 2
+    wall = opU(wall, Box(pos, float3(.5,2,10), M_LEFTWALL2, MAT_FLOOR));
+    //rightwall
+    wall = opU(wall, Box(pos, float3(10,2,1), M_RIGHTWALL, MAT_FLOOR));
+    //roof
+    wall = opU(wall, Box(pos, float3(9,.5,3), M_ROOF, MAT_FLOOR));
+
+    res = opU(floor, wall);
+    //res = wall;
+    res.x += PlateTexture(pos, 1.0, .0075, .0025);
+
+    //holes in left wall
+    res = opS(Cylinder(pos, float2(1.2,1.2), M_WALLHOLE1, MAT_FLOOR), res);
+    res = opS(Cylinder(pos, float2(1.2,1.2), M_WALLHOLE2, MAT_FLOOR), res);
+    res = opS(Cylinder(pos, float2(1.2,1.2), M_WALLHOLE3, MAT_FLOOR), res);
+    
+    //pillars
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR1, MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR2, MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR3, MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR4, MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR5, MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR6, MAT_FLOOR));
+
+    //spheres
+    res = opU(res, Sphere(pos, .2, M_SPHERE, MAT_GREEN));
+    
+	return res;
+}
+/*
+float2 MapOld(in float3 pos)
 {   
     //floor
 	float2 res = PlaneTest(pos);
@@ -154,5 +300,5 @@ float2 Map(in float3 pos)
     res = opU(res, Sphere(pos, .2, float3(5,-7,4), float3(0,0,0), MAT_GREEN));
 	return res;
 }
-
+*/
 #endif // WORLDLOGIC_INCLUDED
