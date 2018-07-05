@@ -166,18 +166,17 @@ namespace SphereTracing
 
 		private void GenerateAmbientOcclusionSamples()
 		{
-			const int samplesPerStep = 360;
-			int sampleCount = AmbientOcclusionSamples * samplesPerStep;
+			const int sampleCount = 360;
+			//Create 360 samples, one for each degree 0 <= degree < 360
 			_aoSampleBuffer = new ComputeBuffer(sampleCount, 3 * sizeof(float), ComputeBufferType.Default);
 			var samples = new Vector3[sampleCount];
 			int c = 0;
 			for (int i = 0; i < AmbientOcclusionSamples; i++)
 			{
-				for (int deg = 0; deg < samplesPerStep; deg++)
+				for (int deg = 0; deg < sampleCount; deg++)
 				{
-					deg *= 360 / samplesPerStep;
 					float rad = deg * Mathf.Deg2Rad;
-					var sample = Utils.Sampling.HemisphericalFibonacciMapping(i, AmbientOcclusionSamples, rad);
+					var sample = Utils.Sampling.HemisphericalFibonacciMapping(i, AmbientOcclusionSamples, rad, Mathf.Tan(ConeAngle / AmbientOcclusionSamples));
 					samples[c] = sample;
 					c++;
 				}

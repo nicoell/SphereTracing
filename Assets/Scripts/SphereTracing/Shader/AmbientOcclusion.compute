@@ -65,23 +65,19 @@ float GetPdf1(in float theta) { return 0.0001 + (cos(theta) * sin(theta)) / PI; 
 float GetPdf2(in float theta) { return 0.0001 + (sin(theta)) / PI2; }
 float BalanceHeuristic(in float pdf1, in float pdf2) { return pdf1 / (pdf1 + pdf2); }
 
-void MISImportanceSample(in float4 r, in float phiRandomMin, in float phiRandomStep, in float thetaRandomMin, in float thetaRandomStep,
-                         out float pdf1, out float pdf2, out float weight1, out float2 sample1, out float2 sample2)
+void MISImportanceSample(in float2 stratifiedSample, in float2 importanceSample,
+                         out float pdf1, out float pdf2, out float weight1)
 {
-    sample1 = GenerateImportanceSample(r.x, r.y, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
-    pdf1 = GetPdf1(sample1.x);
-    sample2 = GenerateStratifiedSample(r.z, r.w, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
-    pdf2 = GetPdf2(sample2.x);
+    pdf1 = GetPdf1(importanceSample.x);
+    pdf2 = GetPdf2(stratifiedSample.x);
     weight1 = BalanceHeuristic(pdf1, pdf2);
 }
 
-void MISStratified(in float4 r, in float phiRandomMin, in float phiRandomStep, in float thetaRandomMin, in float thetaRandomStep,
-                         out float pdf3, out float pdf4, out float weight2, out float2 sample3, out float2 sample4)
+void MISStratified(in float2 stratifiedSample, in float2 importanceSample,
+                         out float pdf3, out float pdf4, out float weight2)
 {
-    sample3 = GenerateStratifiedSample(r.x, r.y, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
-    pdf3 = GetPdf2(sample3.x);
-    sample4 = GenerateImportanceSample(r.z, r.w, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
-    pdf4 = GetPdf1(sample4.x);
+    pdf3 = GetPdf2(stratifiedSample.x);
+    pdf4 = GetPdf1(importanceSample.x);
     weight2 = BalanceHeuristic(pdf4, pdf3);
 }
 
@@ -171,18 +167,19 @@ float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
 		    float phiRandomMin = (float) i / HemisphereStrata; 
 			for (int k = 0; k < SamplesPerStrata; k++)
 			{
-                float2 sSamples[4];      //Sample in spherical coordinates
-                float3 cSamples[4];  //Sample in cartesian coordinates
+                float2 sSamples[2];      //Sample in spherical coordinates
+                float3 cSamples[2];  //Sample in cartesian coordinates
 			    float pdf1, pdf2, pdf3, pdf4;
 			    float weight1, weight2;
-			    float4 randomNumbers = hash42(hash12(float2(i, k)) * 100 + uv * 100.0);
-			    MISImportanceSample (randomNumbers, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep, pdf1, pdf2, weight1, sSamples[0], sSamples[1]);
-			    MISStratified       (randomNumbers, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep, pdf3, pdf4, weight2, sSamples[2], sSamples[3]);
+			    float4 r = hash42(hash12(float2(i, k)) * 100 + uv * 100.0);
+			    sSamples[0] = GenerateStratifiedSample(r.x, r.y, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
+                sSamples[1] = GenerateImportanceSample(r.z, r.w, phiRandomMin, phiRandomStep, thetaRandomMin, thetaRandomStep);
+			    MISImportanceSample (sSamples[0],  sSamples[1], pdf1, pdf2, weight1);
+			    MISStratified       (sSamples[0],  sSamples[1], pdf3, pdf4, weight2);
 
-			    float coneVisibilities[4];
-			    //float3 coneDirections[4];
+			    float coneVisibilities[2];
 			    [unroll]
-			    for (int s = 0; s < 4; s++) {
+			    for (int s = 0; s < 2; s++) {
 			        cSamples[s] = ConvertSphericalToCartesian(1.0, sSamples[s].x, sSamples[s].y);
 			        cSamples[s] = normalize(cSamples[s].y * bitangent + cSamples[s].x * tangent + cSamples[s].z * normal); //Convert to worldspace
 			        coneRay.Direction = cSamples[s]; 
@@ -193,17 +190,17 @@ float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
 			    float3 contributionImportanceSample;
 			    float3 contributionStratifiedSample;
 			    
-			    contributionImportanceSample = cSamples[0] * (coneVisibilities[0] / pdf1) + cSamples[1] * (coneVisibilities[1] / pdf2);
+			    contributionImportanceSample = cSamples[0] * (coneVisibilities[0] / pdf1);
 			    contributionImportanceSample *= weight1;
 			    //contributionImportanceSample /= 4;
 			    
-			    contributionStratifiedSample = cSamples[2] * (coneVisibilities[2] / pdf3) + cSamples[3] * (coneVisibilities[3] / pdf4);
+			    contributionStratifiedSample = cSamples[1] * (coneVisibilities[1] / pdf3);
 			    contributionStratifiedSample *= weight2; 
 			    //contributionStratifiedSample /= 4;
 			    
 			    //bentNormal += contributionImportanceSample;
 			    //bentNormal += contributionStratifiedSample;
-			    bentNormal += contributionImportanceSample + contributionStratifiedSample;
+			    bentNormal += (contributionImportanceSample + contributionStratifiedSample) / 4;
 			}
 		}
 		bentNormal /= (HemisphereStrata * SamplesPerStrata);
