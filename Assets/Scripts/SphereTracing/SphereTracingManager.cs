@@ -19,6 +19,9 @@ namespace SphereTracing
 		private ComputeKernel[] _verticalBilateralFilterKernels;
 		private ComputeKernel[] _deferredKernels;
 		
+		private ComputeKernel[] _environmentMapRendererKernels;
+		private ComputeKernel[] _environmentMapConvolutionKernels;
+		
 		private Resolution _targetResolution;
 		
 		private RenderTexture _deferredOutput;
@@ -36,6 +39,9 @@ namespace SphereTracing
 		public ComputeShader AmbientOcclusionUpSampler;
 		public ComputeShader BilateralFilterShader;
 		public ComputeShader DeferredShader;
+		[Space(5)]
+		public ComputeShader EnvironmentMapRenderer;
+		public ComputeShader EnvironmentMapConvolution;
 
 		[Header("Resolution")]
 		public bool UseCustomResolution;
@@ -90,11 +96,22 @@ namespace SphereTracing
 		public bool EnableCubemap;
 		public Cubemap Cubemap;
 
+		[Header("Cubemap Convolution")]
+		public bool RenderCubemapContinuously = false;
+		public int CubemapResolution = 1024;
+		public int ConvolutionLayerCount = 6;
+		public int ConvolutionSampleCount = 6;
+
 		[Space(10)]
 		[Tooltip("Control the resolution of ambient occlusion rendering.")]
 		public DeferredRenderTarget AmbientOcclusionDrt;
 
 		#endregion
+
+		private RenderTexture _fakeCubemapRenderTexture;
+		private RenderTexture _fakeCubemapArrayRenderTexture;
+		private Cubemap _environmentMap;
+		private CubemapArray _convolutedEnvironmentMapArray;
 		
 		// Use this for initialization
 		public void Awake()
@@ -139,30 +156,69 @@ namespace SphereTracing
 				volumeDepth = 6
 			};
 			_sphereTracingDataLow.Create();
+
+			_fakeCubemapRenderTexture = new RenderTexture(CubemapResolution, CubemapResolution, 0,
+				RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
+			{
+				enableRandomWrite = true,
+				useMipMap = false,
+				autoGenerateMips = false,
+				anisoLevel = 0,
+				dimension = TextureDimension.Tex2DArray,
+				volumeDepth = 6
+			};
+			_fakeCubemapRenderTexture.Create();
 			
+			_fakeCubemapArrayRenderTexture = new RenderTexture(CubemapResolution, CubemapResolution, 0,
+				RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
+			{
+				enableRandomWrite = true,
+				useMipMap = false,
+				autoGenerateMips = false,
+				anisoLevel = 0,
+				dimension = TextureDimension.Tex2DArray,
+				volumeDepth = 6 * ConvolutionLayerCount
+			};
+			_fakeCubemapArrayRenderTexture.Create();
+
+			_environmentMap = new Cubemap(CubemapResolution, TextureFormat.RGBAHalf, false)
+			{
+				hideFlags = HideFlags.HideAndDontSave,
+				wrapMode = TextureWrapMode.Clamp,
+				anisoLevel = 0
+			};
 			
-			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingFPassH",
-				"SphereTracingFPassM", "SphereTracingFPassL"); 
-			_sphereTracingKKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingKPassH",
-				"SphereTracingKPassM", "SphereTracingKPassL"); 
-			_sphereTracingDownSamplerKernels = InitComputeKernels(SphereTracingDownSampler, AmbientOcclusionDrt.Resolution, 2, "SphereTracingDownSampleH",
-				"SphereTracingDownSampleM", "SphereTracingDownSampleL"); 
-			_sphereTracingAoKernels = InitComputeKernels(AmbientOcclusionShader, AmbientOcclusionDrt.Resolution, 1, "AmbientOcclusionH",
-				"AmbientOcclusionM", "AmbientOcclusionL");
-			_sphereTracingAoUpSamplerKernels = InitComputeKernels(AmbientOcclusionUpSampler, _targetResolution, 2, "AmbientOcclusionUpSampleH",
-				"AmbientOcclusionUpSampleM", "AmbientOcclusionUpSampleL"); 
-			_horizontalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2,
-				"AOHorizontalH", "AOHorizontalM", "AOHorizontalL");
-			_verticalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2,
-				"AOVerticalH", "AOVerticalM", "AOVerticalL");
+			_convolutedEnvironmentMapArray = new CubemapArray(CubemapResolution, ConvolutionLayerCount, TextureFormat.RGBAHalf, false)
+			{
+				hideFlags = HideFlags.HideAndDontSave,
+				wrapMode = TextureWrapMode.Clamp,
+				filterMode = FilterMode.Trilinear,
+				anisoLevel = 0
+			};
+
+			_sphereTracingFKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingFPassH", "SphereTracingFPassM", "SphereTracingFPassL");
+			_sphereTracingKKernels = InitComputeKernels(SphereTracingShader, _targetResolution, 1, "SphereTracingKPassH", "SphereTracingKPassM", "SphereTracingKPassL");
+			_sphereTracingDownSamplerKernels = InitComputeKernels(SphereTracingDownSampler, AmbientOcclusionDrt.Resolution, 2, "SphereTracingDownSampleH", "SphereTracingDownSampleM", "SphereTracingDownSampleL");
+			_sphereTracingAoKernels = InitComputeKernels(AmbientOcclusionShader, AmbientOcclusionDrt.Resolution, 1, "AmbientOcclusionH", "AmbientOcclusionM", "AmbientOcclusionL");
+			_sphereTracingAoUpSamplerKernels = InitComputeKernels(AmbientOcclusionUpSampler, _targetResolution, 2, "AmbientOcclusionUpSampleH", "AmbientOcclusionUpSampleM", "AmbientOcclusionUpSampleL");
+			_horizontalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2, "AOHorizontalH", "AOHorizontalM", "AOHorizontalL");
+			_verticalBilateralFilterKernels = InitComputeKernels(BilateralFilterShader, _targetResolution, 2, "AOVerticalH", "AOVerticalM", "AOVerticalL");
 			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, 1, "DeferredH", "DeferredM", "DeferredL");
-			_deferredKernels = InitComputeKernels(DeferredShader, _targetResolution, 1, "DeferredH", "DeferredM", "DeferredL");
+
+			var environmentMapResolution = new Resolution {width = CubemapResolution, height = CubemapResolution};
+			//With 6 z Dispatch groups, one for each side of cubemap
+			_environmentMapRendererKernels = InitComputeKernels(EnvironmentMapRenderer,environmentMapResolution, 6, "RenderEnvironmentMapH", "RenderEnvironmentMapM", "RenderEnvironmentMapL");
+			//With 6 * ConvolutionLayerCount z Dispatch groups. One for each side of cubemap per convoluted cubemap
+			_environmentMapConvolutionKernels = InitComputeKernels(EnvironmentMapConvolution, environmentMapResolution, 6 * ConvolutionLayerCount, "ConvoluteEnvironmentMapH", "ConvoluteEnvironmentMapM", "ConvoluteEnvironmentMapL");
 
 			GenerateAmbientOcclusionSamples();
 			
 			SetShaderPropertiesOnce();
 			InitLights();
 			InitMaterials();
+			
+			//At least we have to render environmentmap one
+			RenderEnvironmentMap();
 		}
 
 		private void GenerateAmbientOcclusionSamples()
@@ -190,6 +246,7 @@ namespace SphereTracing
 		{
 			Shader.SetGlobalFloat("AoTargetMip", AmbientOcclusionDrt.TargetMip);
 			Shader.SetGlobalFloat("CubemapMaxMip", Cubemap.mipmapCount);
+			Shader.SetGlobalInt("EnvironmentMapResolution", CubemapResolution);
 			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
 			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionShader, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
 			foreach (var computeShader in computeShaders)
@@ -232,12 +289,28 @@ namespace SphereTracing
 			{
 				BilateralFilterShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
 			}
+
+			foreach (var kernel in _environmentMapRendererKernels)
+			{
+				EnvironmentMapRenderer.SetTexture(kernel.Id, "FakeCubemapRenderTexture", _fakeCubemapRenderTexture);
+			}
+			foreach (var kernel in _environmentMapConvolutionKernels)
+			{
+				EnvironmentMapConvolution.SetTexture(kernel.Id, "EnvironmentMap", _environmentMap);
+				EnvironmentMapConvolution.SetTexture(kernel.Id, "FakeCubemapArrayRenderTexture", _fakeCubemapArrayRenderTexture);
+			}
+			
 			foreach (var kernel in _deferredKernels)
 			{
 				DeferredShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
 				DeferredShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
 				DeferredShader.SetTexture(kernel.Id, "DeferredOutputTexture", _deferredOutput);
 				DeferredShader.SetTexture(kernel.Id, "Cubemap", Cubemap);
+				//TODO: THIS IS TEMPORARY
+				DeferredShader.SetTexture(kernel.Id, "FakeCubemapRenderTexture", _fakeCubemapRenderTexture);
+				DeferredShader.SetTexture(kernel.Id, "EnvironmentMap", _environmentMap);
+				//
+				DeferredShader.SetTexture(kernel.Id, "ConvolutedEnvironmentMap", _convolutedEnvironmentMapArray);
 			}
 		}
 
@@ -256,6 +329,8 @@ namespace SphereTracing
 			Shader.SetGlobalInt("SphereTracingSteps", SphereTracingSteps);
 			Shader.SetGlobalInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
 			Shader.SetGlobalInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
+			Shader.SetGlobalInt("ConvolutionLayerCount", ConvolutionLayerCount);
+			Shader.SetGlobalInt("SampleCount", ConvolutionSampleCount);
 			Shader.SetGlobalVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
 			Shader.SetGlobalVector("CameraPos", Camera.main.transform.position);
 			Shader.SetGlobalVector("CameraDir", Camera.main.transform.forward);
@@ -284,6 +359,9 @@ namespace SphereTracing
 			UpdateStLights();
 			UpdateStMaterials();
 			SetShaderPropertiesPerFrame();
+			
+			//Rerender sky to cubemap if we want to rendercontinuously
+			if (RenderCubemapContinuously) RenderEnvironmentMap();
 			
 			//Dispatch first pass
 			DispatchPass(true);
@@ -345,6 +423,21 @@ namespace SphereTracing
 			//Render Texture on Screen
 			Graphics.Blit(_deferredOutput, (RenderTexture) null);
 		}
+
+		private void RenderEnvironmentMap()
+		{
+			//Render sky into _fakeCubemapRenderTexture
+			_environmentMapRendererKernels[ComputeShaderKernel].Dispatch();
+			//Copy textureslices of _fakeCubemapRenderTexture into real cubemap
+			for (int f = 0; f < 6; f++)
+				Graphics.CopyTexture(_fakeCubemapRenderTexture, f, _environmentMap, f);
+			
+			//Compute convolution of environmentMap and write into _fakeCubemapArrayRenderTexture
+			_environmentMapConvolutionKernels[ComputeShaderKernel].Dispatch();
+			//Copy textureslices of _fakeCubemapArrayRenderTexture into real cubemapArray
+			for (int f = 0; f < 6 * ConvolutionLayerCount; f++)
+				Graphics.CopyTexture(_fakeCubemapArrayRenderTexture, f, _convolutedEnvironmentMapArray, f);
+		}
 		
 		private void OnDrawGizmosSelected()
 		{
@@ -388,6 +481,10 @@ namespace SphereTracing
 			if (AmbientOcclusionDrt.RenderTexture != null) DestroyImmediate(AmbientOcclusionDrt.RenderTexture);
 			if (AmbientOcclusionDrt.RenderTexture2 != null) DestroyImmediate(AmbientOcclusionDrt.RenderTexture2);
 			if (AmbientOcclusionDrt.RenderTexture3 != null) DestroyImmediate(AmbientOcclusionDrt.RenderTexture3);
+			if (_fakeCubemapRenderTexture != null) DestroyImmediate(_fakeCubemapRenderTexture);
+			if (_fakeCubemapArrayRenderTexture != null) DestroyImmediate(_fakeCubemapArrayRenderTexture);
+			if (_environmentMap != null) DestroyImmediate(_environmentMap);
+			if (_convolutedEnvironmentMapArray != null) DestroyImmediate(_convolutedEnvironmentMapArray);
 		}
 		
 		private ComputeKernel[] InitComputeKernels(ComputeShader computeShader, Resolution res, int totalThreadsZ, params string[] kernelNames)

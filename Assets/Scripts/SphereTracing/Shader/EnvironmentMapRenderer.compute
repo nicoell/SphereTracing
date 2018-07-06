@@ -1,0 +1,150 @@
+#pragma kernel RenderEnvironmentMapH DEF_RW ST_R AO_R HIGH
+#pragma kernel RenderEnvironmentMapM DEF_RW ST_R AO_R MID
+#pragma kernel RenderEnvironmentMapL DEF_RW ST_R AO_R LOW
+
+#include "Defines/HighMidLowThreads.cginc"
+#include "Defines/SharedConstants.cginc"
+
+float3 Background(in float3 direction);
+
+RWTexture2DArray<float4> FakeCubemapRenderTexture;
+
+int EnvironmentMapResolution;
+
+void Main(uint3 id)
+{
+    float2 uv = float2((id.x + 0.5) / EnvironmentMapResolution, (id.y + 0.5) / EnvironmentMapResolution);
+    uv = 2.0 * uv - float2(1, 1); // we want coordinates from -.5 to 0.5
+    
+    float3 dir;
+         if (id.z == 0) dir = normalize(float3(    1, -uv.y, -uv.x)); //posXDirection
+    else if (id.z == 1) dir = normalize(float3(   -1, -uv.y,  uv.x)); //negXDirection
+    else if (id.z == 2) dir = normalize(float3( uv.x,     1,  uv.y)); //posYDirection
+    else if (id.z == 3) dir = normalize(float3( uv.x,    -1, -uv.y)); //negYDirection
+    else if (id.z == 4) dir = normalize(float3( uv.x, -uv.y,     1)); //posZDirection
+    else if (id.z == 5) dir = normalize(float3(-uv.x, -uv.y, -   1)); //negZDirection
+    
+    float3 skyColor = Background(dir);
+    
+    FakeCubemapRenderTexture[id] = float4(skyColor, 1);
+}
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void RenderEnvironmentMapH (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void RenderEnvironmentMapM (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void RenderEnvironmentMapL (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+
+/*
+ *  BACKGROUND
+ * 
+ *  Background/Sky related functions from here on. Need more comments
+ */
+float3 totalMie(in float T)
+{
+	float3 MieConst = float3(1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );
+	float c = (0.2*T) * 10E-18;
+	return 0.434 * c * MieConst;
+}
+
+float sunIntensity(in float zenithAngleCos )
+{   
+	float e = 2.71828182845904523536028747135266249775724709369995957;
+	float EE = 1000.0;
+	float cutoffAngle = 1.6110731556870734;
+	float steepness = 1.5;
+	zenithAngleCos = clamp( zenithAngleCos, -1.0, 1.0 );
+	return EE * max( 0.0, 1.0 - pow( e, -( ( cutoffAngle - acos( zenithAngleCos)) / steepness ) ) );
+}
+
+float hgPhase(in float cosTheta,in float g)
+{
+	float ONE_OVER_FOURPI = 0.07957747154594767;
+	float g2 = pow( g, 2.0);
+	float inverse = 1.0 / pow( 1.0 - 2.0 * g * cosTheta + g2, 1.5);
+	return ONE_OVER_FOURPI * ( ( 1.0 - g2 ) * inverse );
+}
+
+float rayleighPhase(in float cosTheta ) 
+{
+	float THREE_OVER_SIXTEENPI = 0.05968310365946075;
+	return THREE_OVER_SIXTEENPI * ( 1.0 + pow( cosTheta, 2.0 ) );
+}
+
+float3 Uncharted2Tonemap(in float3 x)
+{
+	float A = 0.15;
+	float B = 0.50;
+	float C = 0.10;
+	float D = 0.20;
+	float E = 0.02;
+	float F = 0.30;
+	return ( ( x * ( A * x + C * B ) + D * E ) / ( x * ( A * x + B ) + D * F ) ) - E / F;
+}
+
+float3 Background(in float3 direction)
+{       
+	
+	float3 sunPosition = float3( 4000.0, 150.0, 7000.0 );
+	float3 vSunDirection = normalize( sunPosition );
+
+	float3 up = float3(0.0, 1.0, 0.0);
+
+	float vSunE = sunIntensity( dot( vSunDirection, up ));
+	float vSunfade = 1.0 - clamp( 1.0 - exp((sunPosition.y / 450000.0 )), 0.0, 1.0);
+
+	float rayleigh = 2.0;
+	float3 totalRayleigh = float3( 5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5 );
+	float rayleighCoefficient = rayleigh - (1.0 * (1.0 - vSunfade ));
+	float3 vBetaR = totalRayleigh * rayleighCoefficient;
+
+	float turbidity = 10.0;
+	float mieCoefficient = 0.005;
+	float vBetaM = totalMie( turbidity ) * mieCoefficient;
+
+	float pi = 3.141592653589793238462643383279502884197169;
+	float rayleighZenithLength = 8.4E3;
+	float mieZenithLength = 1.25E3;
+	float zenithAngle = acos(max(0.0, dot( up, normalize(direction) ) ) );
+	float inverse = 1.0 / ( cos( zenithAngle ) + 0.15 * pow( 93.885 - ( ( zenithAngle * 180.0 ) / pi ), -1.253) );
+	float sR = rayleighZenithLength * inverse;
+	float sM = mieZenithLength * inverse;
+
+	float3 Fex = exp( -( vBetaR * sR + vBetaM * sM) );
+
+	float cosTheta = dot( normalize(direction), vSunDirection );
+	float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5);
+	float3 betaRTheta = vBetaR * rPhase;
+
+	float mieDirectionalG = 0.8;
+	float mPhase = hgPhase( cosTheta, mieDirectionalG);
+	float3 betaMTheta = vBetaM * mPhase;
+
+	float3 Lin = pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * ( 1.0 - Fex ), float3( 1.5 , 1.5, 1.5) );
+	Lin *= lerp( float3( 1.0,1.0,1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, float3( 1.0 / 2.0, 1.0 / 2.0, 1.0 / 2.0 ) ), clamp( pow( 1.0 - dot( up, vSunDirection ), 5.0 ), 0.0, 1.0 ) );
+
+	float theta = acos(direction.y);
+	float phi = atan2(direction.z, direction.x);
+	float2 uv = float2(phi, theta);
+	float3 L0 = float3(0.1,0.1,0.1) * Fex;
+
+	float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;
+	float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
+	L0 += ( vSunE * 19000.0 * Fex) * sundisk;
+
+	float luminance = 1.0;
+	float whiteScale = 1.0748724675633854;
+	float3 texColor = (Lin + L0) * 0.04 + float3(0.0, 0.0003, 0.00075);
+	float3 curr = Uncharted2Tonemap( ( log2( 2.0 / pow( luminance, 4.0 ) ) ) * texColor );
+	float3 color = curr * whiteScale;
+
+	float retc =  1.0 / ( 1.2 + ( 1.2 * vSunfade ) );
+	float3 retColor = pow( color, float3(retc, retc, retc));
+
+	//return direction;
+	return retColor;
+}

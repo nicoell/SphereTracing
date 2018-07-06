@@ -1,0 +1,119 @@
+#pragma kernel ConvoluteEnvironmentMapH HIGH
+#pragma kernel ConvoluteEnvironmentMapM MID
+#pragma kernel ConvoluteEnvironmentMapL LOW
+
+#include "Defines/HighMidLowThreads.cginc"
+#include "Defines/SharedConstants.cginc"
+
+int EnvironmentMapResolution;
+
+TextureCube<float4> EnvironmentMap;
+SamplerState sampler_EnvironmentMap;
+RWTexture2DArray<float4> FakeCubemapArrayRenderTexture;
+
+int SampleCount;
+int ConvolutionLayerCount;
+
+
+float ComputeGeometricTerm(in float3 inDirection, in float3 outDirection) {
+	return max(0.0, dot(inDirection, outDirection));
+}
+
+float ComputeReflectance(in float3 inDirection, in float3 outDirection) {
+	return PI_1_PI; // lambert
+}
+
+float3 ComputeIncomingRadiance(in float3 inDirection) {
+    return EnvironmentMap.SampleLevel(sampler_EnvironmentMap, inDirection, 0.0).rgb;
+}
+
+float ComputePDF(in float3 inDirection) {
+	return PI_1_PI * 0.5; // uniform
+}
+
+float3 ComputeRadiance(in float3 inDirection, in float3 outDirection) {	
+	return 
+		ComputeIncomingRadiance(inDirection) * 		 
+		ComputeReflectance(inDirection, outDirection) * 
+		ComputeGeometricTerm(inDirection, outDirection) /
+		ComputePDF(inDirection);
+}
+
+float3 UnitSphericalToCarthesian(in float2 spherical) {
+	float phi = spherical.x;
+	float theta = spherical.y;
+	float x = sin(phi) * sin(theta);
+	float y = cos(phi) * sin(theta);
+	float z = cos(theta);
+	return float3(x, y, z);
+}
+
+void GetCoordinateSystem(in float3 direction, out float3 normal, out float3 tangent, out float3 bitangent)
+{
+    normal = normalize(direction);
+	float3 up = abs(normal.y) < 0.999 ? float3(0, 1, 0) : float3(1,0,0);
+	tangent = normalize( cross( up, normal ) );
+	bitangent = cross( normal, tangent );   
+}
+
+float3 ComputeConvolutionForDirection(in float3 direction, in float cutOffAngle) {
+	float3 radianceSum = (float3) .0;
+
+	float3 u,v,w;
+	GetCoordinateSystem(direction, u, v, w);
+
+	float cutOffAngleCosine = cos(cutOffAngle);
+
+	float weigthsSum = 0.0;
+
+	for(int i = 0; i < SampleCount; i++) {
+		for(int j = 0; j < SampleCount; j++) {
+			float s = 2.0 * PI * (j + 0.5) / SampleCount;
+			// uniform sampling of hemisphere
+			float t = acos((i + 0.5) / SampleCount * ((1.0 - cutOffAngleCosine) + cutOffAngleCosine));
+			float3 sampleDirection = UnitSphericalToCarthesian(float2(s, t));
+
+			// transform to orthonormal basis of direction
+			float3 finalSampleDirection = sampleDirection.x * u + sampleDirection.y * v + sampleDirection.z * w;
+
+			float3 radianceSample = ComputeRadiance(finalSampleDirection, direction);
+			float coneWeight = 1.0; // all samples in cone
+			weigthsSum += coneWeight;
+			radianceSum += coneWeight * radianceSample;
+		}
+	}
+	radianceSum.rgb /= weigthsSum;
+
+	return radianceSum.rgb;
+}
+
+void Main(uint3 id)
+{
+    float2 uv = float2((id.x + 0.5) / EnvironmentMapResolution, (id.y + 0.5) / EnvironmentMapResolution);
+    uv = 2.0 * uv - float2(1, 1); // we want coordinates from -.5 to 0.5
+    
+    //Calculate cutOffAngle based on ConvolutionLayerCount
+    int i = id.z / 6;
+    float cutOffAngle = (ConvolutionLayerCount - i) / (ConvolutionLayerCount * PI2);
+    
+    float3 dir;
+         if ((id.z % ConvolutionLayerCount) == 0) dir = normalize(float3(    1, -uv.y, -uv.x)); //posXDirection
+    else if ((id.z % ConvolutionLayerCount) == 1) dir = normalize(float3(   -1, -uv.y,  uv.x)); //negXDirection
+    else if ((id.z % ConvolutionLayerCount) == 2) dir = normalize(float3( uv.x,     1,  uv.y)); //posYDirection
+    else if ((id.z % ConvolutionLayerCount) == 3) dir = normalize(float3( uv.x,    -1, -uv.y)); //negYDirection
+    else if ((id.z % ConvolutionLayerCount) == 4) dir = normalize(float3( uv.x, -uv.y,     1)); //posZDirection
+    else if ((id.z % ConvolutionLayerCount) == 5) dir = normalize(float3(-uv.x, -uv.y, -   1)); //negZDirection
+    
+    float3 convolutedSkyColor = ComputeConvolutionForDirection(dir, cutOffAngle);
+    
+    FakeCubemapArrayRenderTexture[id] = float4(convolutedSkyColor, 1);
+}
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void ConvoluteEnvironmentMapH (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void ConvoluteEnvironmentMapM (uint3 id : SV_DispatchThreadID) { Main(id); }
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void ConvoluteEnvironmentMapL (uint3 id : SV_DispatchThreadID) { Main(id); }
