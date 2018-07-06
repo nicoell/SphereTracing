@@ -172,8 +172,10 @@ void CalcAO(uint3 id)
 	//Do not calculate ao if a surface' alpha doesn't have an impact
 	if (sign(surface.MaterialId) >= 0) {
 		StMaterial surfaceMat = MaterialBuffer[surface.MaterialId];
-		ComputeAO(uv, surface.Position, (surface.RayDirection), normalize(surface.Normal), surfaceMat.ReflectiveF,
+		ComputeAO(uv, surface.Position, (surface.RayDirection), surface.Normal, surfaceMat.ReflectiveF,
 			surfaceAo.BentNormal, surfaceAo.SpecularOcclusion);
+			
+		surfaceAo.BentNormal -= surface.Normal; //Save the change of normals.
 	} else {
 		surfaceAo.BentNormal = (float3) 0;
 		surfaceAo.SpecularOcclusion = 0;
@@ -182,6 +184,7 @@ void CalcAO(uint3 id)
 		StMaterial representMat = MaterialBuffer[represent.MaterialId];
 		ComputeAO(uv, represent.Position, represent.RayDirection, represent.Normal, representMat.ReflectiveF, 
 			representAo.BentNormal, representAo.SpecularOcclusion);
+		representAo.BentNormal -= surface.Normal; //Save the change of normals.
 	} else {
 		representAo.BentNormal = (float3) 0;
 		representAo.SpecularOcclusion = 0;
