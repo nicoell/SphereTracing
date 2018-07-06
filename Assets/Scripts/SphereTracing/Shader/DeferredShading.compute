@@ -71,7 +71,7 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
 {
     float3 color = float3(.0, .0, .0);
         
-    float3 ambientColor = float3(.1, .1, .1);
+    float3 ambientColor = float3(.0, .0, .0);
 	float3 diffuseColor = float3(.0, .0, .0);
 	float3 specularColor = float3(.0, .0, .0);
 	
@@ -89,7 +89,11 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
             Ray aoRay;
             aoRay.Origin = float3(0,0,0);
             aoRay.Direction = bentNormal;
-            ambientColor = specularOcclusion * diffuseOcclusion * Background(aoRay);
+            if (EnableCubemap){
+                ambientColor = diffuseOcclusion * Cubemap.SampleLevel(sampler_Cubemap, aoRay.Direction, (1 - diffuseOcclusion) * CubemapMaxMip).xyz;
+            } else {
+                ambientColor = specularOcclusion * diffuseOcclusion * Background(aoRay);
+            }
         }
         
         for(int i = 0; i < LightCount; i++)
@@ -99,58 +103,64 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
             
             //Compute BlinnPhong Lightning
             float3 lightDir;
+            float3 lightDirNormalized;
             float3 lightColor;
-            float3 lightPower;
+            float lightPower;
             float attenuation = 1.0;
-            float shadow = 1;
-
+            float lightOcclusion = 1.0;
+            float shadow = 0.0;
+            
             if (light.LightType == 0)               // Point Light
             {
                 lightDir = light.LightData2.xyz - surface.Position;
+                lightDirNormalized = normalize(lightDir);
+                lightColor = light.LightData.xyz;
                 lightPower = light.LightData.w;
                 attenuation = lightPower / length(lightDir);
-                lightDir = normalize(lightDir);
-                lightColor = light.LightData.xyz;
+                
                 //shadow = ShadowSoft(light.LightData2.xyz, surface, 24, .2);
                 shadow = ShadowSoft2(light.LightData2.xyz, surface, 10, .1);
 
             } else if (light.LightType == 1)        // Directional Light
             {
                 lightDir = light.LightData2.xyz;
-                lightDir = normalize(lightDir);
+                lightDirNormalized = normalize(lightDir);
                 lightColor = light.LightData.xyz;
                 lightPower = light.LightData.w;
+                //attenuation = 1.0; No attenuation for directional light
                 //NOTE: Low performance on Directional Light for Shadows
-                float3 fakeLightPos = lightDir*20;
-                float3 fakeLightDir = normalize(fakeLightPos - surface.Position);
-                //shadow = ShadowSoft(fakeLightPos, surface, 512, .2);
- 
+                float3 fakeLightPos = lightDirNormalized*20;
+                //float3 fakeLightDir = normalize(fakeLightPos - surface.Position);
+                shadow = ShadowSoft2(fakeLightPos, surface, 10, .2);
+                
             }
             
-            float lambertian = max(dot(surface.Normal, lightDir), 0.0);
+            float NdotL = saturate(dot(lightDirNormalized, surface.Normal));
+            float bentNdotL = saturate(dot(lightDirNormalized, bentNormal));
+            lightOcclusion = 1.0 - saturate(sqrt(saturate(NdotL - bentNdotL)));
+            
+            float lambertian = max(dot(bentNormal, lightDir), 0.0);
+            
             float specular = 0.0;
-            
-            //if (lambertian > 0) {
-                float3 halfDir = normalize(lightDir + (-CameraDir));
-                float specularAngle = max(dot(surface.Normal, halfDir), 0.0);
-                specular = pow(specularAngle, mat.Shininess);
-            //} 
-            
-            diffuseColor += mat.DiffuseColor * lambertian * lightColor * attenuation * shadow;
-            specularColor += mat.SpecularColor * specular * lightColor * attenuation * shadow;
+            float3 halfDir = normalize(lightDir + (-CameraDir));
+            float specularAngle = max(dot(bentNormal, halfDir), 0.0);
+            specular = pow(specularAngle, mat.Shininess);
+
+            diffuseColor += mat.DiffuseColor * lambertian * lightColor * attenuation * lightOcclusion * shadow;
+            specularColor += mat.SpecularColor * specular * lightColor * attenuation * lightOcclusion * specularOcclusion * shadow;
         }
         
-        diffuseColor *= diffuseOcclusion;
-        specularColor *= specularOcclusion;
+        //diffuseColor *= diffuseOcclusion;
+        //specularColor *= specularOcclusion;
         
         //Add up color
-        color = ambientColor + diffuseColor + specularColor;
+        color = diffuseColor + specularColor;
 	} else {
 	    Ray r;
 	    r.Origin = float3(0,0,0);
 	    r.Direction = surface.RayDirection;
 	    if (EnableCubemap){
-	        skyColor += Cubemap.SampleLevel(sampler_Cubemap, r.Direction, 0);
+	        skyColor += Cubemap.SampleLevel(sampler_Cubemap, r.Direction, 0).xyz;
 	    } else {
 	        //Use prodecural sky generation if cubemap is not enabled. Expensive!
 	        skyColor += Background(r) * surface.Alpha ;

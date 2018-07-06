@@ -2,6 +2,7 @@
 #define SHAREDINPUTS_INCLUDED
 
 float AoTargetMip;
+float CubemapMaxMip;
 float4 PlateTextureSettings;
 
 float3 CameraPos;

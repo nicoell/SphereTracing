@@ -189,6 +189,7 @@ namespace SphereTracing
 		private void SetShaderPropertiesOnce()
 		{
 			Shader.SetGlobalFloat("AoTargetMip", AmbientOcclusionDrt.TargetMip);
+			Shader.SetGlobalFloat("CubemapMaxMip", Cubemap.mipmapCount);
 			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
 			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionShader, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
 			foreach (var computeShader in computeShaders)
@@ -452,7 +453,10 @@ namespace SphereTracing
 			if (_stLights != null && _stLights.All(item => item.GetInstanceID() != stLight.GetInstanceID())) _stLights.Add(stLight);
 		}
 
-		public void CleanStLights() { _stLights.RemoveAll(lights => lights == null || !lights.IsActive); }
+		public void CleanStLights()
+		{
+			_stLights.RemoveAll(lights => lights == null || !lights.IsActive);
+		}
 
 		private void UpdateStLights()
 		{
@@ -474,6 +478,7 @@ namespace SphereTracing
 			_stLightBuffer.SetData(_stLightData);
 
 			DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "LightBuffer", _stLightBuffer);
+			Shader.SetGlobalInt("LightCount", _stLights.Count);
 		}
 
 		#endregion
