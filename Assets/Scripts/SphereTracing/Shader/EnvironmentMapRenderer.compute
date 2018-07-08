@@ -14,7 +14,7 @@ int EnvironmentMapResolution;
 void Main(uint3 id)
 {
     float2 uv = float2((id.x + 0.5) / EnvironmentMapResolution, (id.y + 0.5) / EnvironmentMapResolution);
-    uv = 2.0 * uv - float2(1, 1); // we want coordinates from -.5 to 0.5
+    uv = 2.0 * uv - float2(1.0, 1.0); // we want coordinates from -1 to 1
     
     float3 dir;
          if (id.z == 0) dir = normalize(float3(    1, -uv.y, -uv.x)); //posXDirection
@@ -22,20 +22,20 @@ void Main(uint3 id)
     else if (id.z == 2) dir = normalize(float3( uv.x,     1,  uv.y)); //posYDirection
     else if (id.z == 3) dir = normalize(float3( uv.x,    -1, -uv.y)); //negYDirection
     else if (id.z == 4) dir = normalize(float3( uv.x, -uv.y,     1)); //posZDirection
-    else if (id.z == 5) dir = normalize(float3(-uv.x, -uv.y, -   1)); //negZDirection
+    else if (id.z == 5) dir = normalize(float3(-uv.x, -uv.y,    -1)); //negZDirection
     
     float3 skyColor = Background(dir);
     
     FakeCubemapRenderTexture[id] = float4(skyColor, 1);
 }
 
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+[numthreads(ThreadsX, ThreadsX, ThreadsZ)]
 void RenderEnvironmentMapH (uint3 id : SV_DispatchThreadID) { Main(id); }
 
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+[numthreads(ThreadsX, ThreadsX, ThreadsZ)]
 void RenderEnvironmentMapM (uint3 id : SV_DispatchThreadID) { Main(id); }
 
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+[numthreads(ThreadsX, ThreadsX, ThreadsZ)]
 void RenderEnvironmentMapL (uint3 id : SV_DispatchThreadID) { Main(id); }
 
 

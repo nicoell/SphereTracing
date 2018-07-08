@@ -90,7 +90,7 @@ float3 ComputeConvolutionForDirection(in float3 direction, in float cutOffAngle)
 void Main(uint3 id)
 {
     float2 uv = float2((id.x + 0.5) / EnvironmentMapResolution, (id.y + 0.5) / EnvironmentMapResolution);
-    uv = 2.0 * uv - float2(1, 1); // we want coordinates from -.5 to 0.5
+    uv = 2.0 * uv - float2(1, 1); // we want coordinates from -1 to 1
     
     //Calculate cutOffAngle based on ConvolutionLayerCount
     int i = id.z / 6;
@@ -109,11 +109,11 @@ void Main(uint3 id)
     FakeCubemapArrayRenderTexture[id] = float4(convolutedSkyColor, 1);
 }
 
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+[numthreads(ThreadsX, ThreadsX, ThreadsZ)]
 void ConvoluteEnvironmentMapH (uint3 id : SV_DispatchThreadID) { Main(id); }
 
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+[numthreads(ThreadsX, ThreadsX, ThreadsZ)]
 void ConvoluteEnvironmentMapM (uint3 id : SV_DispatchThreadID) { Main(id); }
 
-[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+[numthreads(ThreadsX, ThreadsX, ThreadsZ)]
 void ConvoluteEnvironmentMapL (uint3 id : SV_DispatchThreadID) { Main(id); }

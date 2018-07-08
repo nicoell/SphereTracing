@@ -185,8 +185,8 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
 	    r.Direction = surface.RayDirection;
 	    if (EnableCubemap){
 	        //skyColor += FakeCubemapRenderTexture.SampleLevel(sampler_FakeCubemapRenderTexture, r.Direction, 0).xyz;
-	        //skyColor += EnvironmentMap.SampleLevel(sampler_EnvironmentMap, r.Direction, 0).xyz;
-	        skyColor += ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(r.Direction, OcclusionExponent * (ConvolutionLayerCount - 1.0)), 0.0);
+	        skyColor += EnvironmentMap.SampleLevel(sampler_EnvironmentMap, r.Direction, 0).xyz  * surface.Alpha;
+	        //skyColor += ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(r.Direction, OcclusionExponent * (ConvolutionLayerCount - 1.0)), 0.0);
 	    } else {
 	        //Use prodecural sky generation if cubemap is not enabled. Expensive!
 	        skyColor += Background(r) * surface.Alpha ;
