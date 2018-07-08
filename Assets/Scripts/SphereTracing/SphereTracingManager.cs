@@ -64,7 +64,7 @@ namespace SphereTracing
 		public float RadiusPixel = 0.01f;
 		
 		[Header("Features")]
-		public bool EnableSuperSampling;
+		public bool DisableAntiAliasing;
 		public int LightCount = 1;
 		public Color ClearColor = Color.black;
 		[Tooltip("x: Gap Distance, y: Size, z: Depth, w: VisibleRange")]
@@ -94,6 +94,7 @@ namespace SphereTracing
 
 		[Header("Cubemap")]
 		public bool EnableCubemap;
+		public Vector3 SunPosition = new Vector3(4000.0f, 150.0f, 7000.0f);
 		//public Cubemap Cubemap;
 
 		[Header("Cubemap Convolution")]
@@ -337,6 +338,7 @@ namespace SphereTracing
 			Shader.SetGlobalVector("CameraDir", Camera.main.transform.forward);
 			Shader.SetGlobalVector("GammaCorrection", GammaCorrection);
 			Shader.SetGlobalVector("PlateTextureSettings", PlateTextureSettings);
+			Shader.SetGlobalVector("SunPosition", SunPosition);
 			Shader.SetGlobalColor("ClearColor", ClearColor);
 			Shader.SetGlobalVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 			Shader.SetGlobalMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
@@ -346,7 +348,7 @@ namespace SphereTracing
 			foreach (var computeShader in computeShaders)
 			{
 				computeShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
-				computeShader.SetBool("EnableSuperSampling", EnableSuperSampling);
+				computeShader.SetBool("DisableAntiAliasing", DisableAntiAliasing);
 				computeShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
 				computeShader.SetBool("EnableCubemap", EnableCubemap);
 				computeShader.SetFloats("ClippingPlanes", Camera.main.nearClipPlane, Camera.main.farClipPlane);
@@ -365,14 +367,14 @@ namespace SphereTracing
 			if (RenderCubemapContinuously) RenderEnvironmentMap();
 			
 			//Dispatch first pass
-			DispatchPass(true);
+			DispatchPass(true, IterativeSteps == 0);
 			
 			//Perform iterative steps for transparency and reflections
 			for (int iterativeStep = 0; iterativeStep < IterativeSteps; iterativeStep++)
-				DispatchPass(false);
+				DispatchPass(false, iterativeStep > IterativeSteps - 1);
 		}
 		
-		private void DispatchPass(bool isFirstPass)
+		private void DispatchPass(bool isFirstPass, bool isLastPass)
 		{
 			if (isFirstPass)
 			{
@@ -414,6 +416,7 @@ namespace SphereTracing
 			}
 			
 			DeferredShader.SetBool("IsFirstPass", isFirstPass);
+			DeferredShader.SetBool("IsLastPass", isLastPass);
 			//Deferred Rendering step to calculate lightning and finalize image
 			_deferredKernels[ComputeShaderKernel].Dispatch();
 			

@@ -6,6 +6,7 @@
 int RenderOutput;
 
 bool IsFirstPass;
+bool IsLastPass;
 float4 ClearColor;
 
 bool EnableAmbientOcclusion;

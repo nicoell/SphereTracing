@@ -10,6 +10,7 @@ float3 Background(in float3 direction);
 RWTexture2DArray<float4> FakeCubemapRenderTexture;
 
 int EnvironmentMapResolution;
+float3 SunPosition;
 
 void Main(uint3 id)
 {
@@ -89,7 +90,7 @@ float3 Uncharted2Tonemap(in float3 x)
 float3 Background(in float3 direction)
 {       
 	
-	float3 sunPosition = float3( 4000.0, 150.0, 7000.0 );
+	float3 sunPosition = SunPosition;//float3( 4000.0, 150.0, 7000.0 );
 	float3 vSunDirection = normalize( sunPosition );
 
 	float3 up = float3(0.0, 1.0, 0.0);

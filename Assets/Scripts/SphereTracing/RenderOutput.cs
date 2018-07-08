@@ -25,7 +25,8 @@ namespace SphereTracing {
 		RepresentBentNormal,
 		RepresentDiffuseOcclusion,
 		RepresentSpecularOcclusion,
-		SurfaceLowResDepth
-		
+		SurfaceLowResDepth,
+		CombinedBentNormal,
+		CubeMapArray
 	}
 }

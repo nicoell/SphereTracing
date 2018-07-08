@@ -4,6 +4,7 @@
 float AoTargetMip;
 float CubemapMaxMip;
 float4 PlateTextureSettings;
+bool DisableAntiAliasing;
 
 float3 CameraPos;
 float2 ClippingPlanes;                      //x: Near        y: Far    
