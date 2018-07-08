@@ -96,6 +96,12 @@ float4x4(1, 0, 0, -5,
 0, 0, 1, -4, 
 0, 0, 0, 1); 
  
+static const float4x4 M_BB =
+float4x4(1, 0, 0, 1.75, 
+0, 1, 0, 6, 
+0, 0, 1, 6, 
+0, 0, 0, 1); 
+ 
 //Objects in the world.
 float PlateTexture(float3 pos, uniform float4 plateSettings)
 {   
@@ -149,13 +155,17 @@ float2 Map(in float3 pos)
 	float2 res;
     //floor
 	float2 floor = FloorPlane(pos, 8, MAT_FLOOR);
+	
+	//Bounding Box Test
+    float2 bb = Box(pos, float3(10.25, 2, 13), M_BB, -1);
+    if (bb.x > 0.1) floor;
 
     //left wall
     float2 wall = Box(pos, float3(10,2,1), M_LEFTWALL, MAT_FLOOR);
     //holes in left wall
-    wall = opS(Cylinder(pos, float2(1.2,1.2), M_WALLHOLE1, MAT_FLOOR), wall);
-    wall = opS(Cylinder(pos, float2(1.2,1.2), M_WALLHOLE2, MAT_FLOOR), wall);
-    wall = opS(Cylinder(pos, float2(1.2,1.2), M_WALLHOLE3, MAT_FLOOR), wall);
+    wall = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE1, MAT_FLOOR), wall);
+    wall = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE2, MAT_FLOOR), wall);
+    wall = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE3, MAT_FLOOR), wall);
     //leftwall 2
     wall = opU(wall, Box(pos, float3(.5,2,10), M_LEFTWALL2, MAT_FLOOR));
     //rightwall
