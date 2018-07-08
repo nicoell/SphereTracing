@@ -101,7 +101,8 @@ namespace SphereTracing
 		public int CubemapResolution = 1024;
 		public int ConvolutionLayerCount = 6;
 		public int ConvolutionSampleCount = 6;
-
+        [Range(0,5)]
+        public int CubeMapIndex;
 		[Space(10)]
 		[Tooltip("Control the resolution of ambient occlusion rendering.")]
 		public DeferredRenderTarget AmbientOcclusionDrt;
@@ -339,7 +340,7 @@ namespace SphereTracing
 			Shader.SetGlobalColor("ClearColor", ClearColor);
 			Shader.SetGlobalVectorArray("CameraFrustumEdgeVectors", GetCameraFrustumEdgeVectors(Camera.main));
 			Shader.SetGlobalMatrix("CameraInverseViewMatrix", Camera.main.cameraToWorldMatrix);
-			
+            Shader.SetGlobalInt("CubeMapIndex", CubeMapIndex);
 			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
 			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionShader, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
 			foreach (var computeShader in computeShaders)
