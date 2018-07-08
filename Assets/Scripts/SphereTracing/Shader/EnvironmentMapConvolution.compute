@@ -39,24 +39,16 @@ float3 ComputeRadiance(in float3 inDirection, in float3 outDirection) {
 		ComputePDF(inDirection);
 }
 
-/*float3 UnitSphericalToCarthesian(in float2 spherical) {
-	float phi = spherical.x;
-	float theta = spherical.y;
-	float x = sin(phi) * sin(theta);
-	float y = cos(phi) * sin(theta);
-	float z = cos(theta);
-	return float3(x, y, z);
-}*/
+
 float3 HemisphericalFibonacciMapping(float i, float n, float rand, float minZ)
 {
 	float phi = i * 2.0 * PI * GOLDENRATIO + rand;
 	float zi = 1.0 - (2.0*i + 1.0) / (2 * n);
-	zi = max(zi, minZ);
+	zi = zi * (1.0 - minZ) + minZ;
 	float theta = sqrt(1.0 - zi * zi);
 	return normalize(float3(cos(phi) * theta, sin(phi) * theta, zi));
 }
 
-void GetCoordinateSystem(in float3 direction, out float3 normal, out float3 tangent, out float3 bitangent)
 void GetCoordinateSystem(in float3 direction, out float3 tangent, out float3 bitangent, out float3 normal)
 {
     normal = normalize(direction);
@@ -74,22 +66,7 @@ float3 ComputeConvolutionForDirection(in float3 direction, in float cutOffAngle)
 	float cutOffAngleCosine = cos(cutOffAngle);
 
 	float weigthsSum = 0.0;
-	/*for(int i = 0; i < SampleCount; i++) {
-		for(int j = 0; j < SampleCount; j++) {
-			float s = 2.0 * PI * (j + 0.5) / SampleCount;
-			// uniform sampling of hemisphere
-			float t = acos((i + 0.5) / SampleCount * ((cutOffAngleCosine) * cutOffAngleCosine));
-			float3 sampleDirection = UnitSphericalToCarthesian(float2(s, t));
 
-			// transform to orthonormal basis of direction
-			float3 finalSampleDirection = sampleDirection.x * u + sampleDirection.y * v + sampleDirection.z * w;
-
-			float3 radianceSample = ComputeRadiance(finalSampleDirection, direction);
-			float coneWeight = 1.0; // all samples in cone
-			weigthsSum += coneWeight;
-			radianceSum += coneWeight * radianceSample;
-		}
-	}*/
 	for (int i = 0; i < SampleCount; i++) {
 		// uniform sampling of hemisphere
 		float3 sampleDirection = HemisphericalFibonacciMapping(i, SampleCount, 0, cutOffAngleCosine);

@@ -11,7 +11,8 @@ namespace Utils
 		{
 			float phi = i * 2.0f * PI * GOLDENRATIO + rand;
 			float zi = 1.0f - (2.0f*i+1.0f)/(2.0f*n);
-			zi = Mathf.Max(zi, minZ);
+			//zi = Mathf.Max(zi, minZ);
+			zi = zi * (1 - minZ) + minZ;
 			float theta = Mathf.Sqrt(1.0f - zi*zi);
 			return new Vector3( Mathf.Cos(phi) * theta, Mathf.Sin(phi) * theta, zi).normalized;
 		}

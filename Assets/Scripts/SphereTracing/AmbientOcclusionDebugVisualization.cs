@@ -34,6 +34,7 @@ namespace SphereTracing
 		[Range(0, 1)]
 		public float RandomNumber;
 		public float MaxTraceDistance;
+		public bool CorrectSamplesWithConeAngle;
 		[Range(0, 2*Mathf.PI)]
 		public float ConeAngle = Mathf.PI / 4f;
 
@@ -58,7 +59,7 @@ namespace SphereTracing
 			for (var coneIndex = 0; coneIndex < AmbientOcclusionSamples; coneIndex++)
 			{
 				var coneDir = Sampling.HemisphericalFibonacciMapping(coneIndex, AmbientOcclusionSamples,
-					RandomNumber * 2 * Mathf.PI, GetTanConeAngle(ConeAngle));
+					RandomNumber * 2 * Mathf.PI, CorrectSamplesWithConeAngle ? GetTanConeAngle(ConeAngle) : Mathf.Clamp01(ConeAngle));
 				var coneDirWorld = coneDir.x * tangent + coneDir.y * bitangent + coneDir.z * normal;
 				//Prevent self occlusion
 				//coneDirWorld += normal * GetTanConeAngle(ConeAngle);
