@@ -94,7 +94,7 @@ namespace SphereTracing
 
 		[Header("Cubemap")]
 		public bool EnableCubemap;
-		public Cubemap Cubemap;
+		//public Cubemap Cubemap;
 
 		[Header("Cubemap Convolution")]
 		public bool RenderCubemapContinuously = false;
@@ -245,7 +245,7 @@ namespace SphereTracing
 		private void SetShaderPropertiesOnce()
 		{
 			Shader.SetGlobalFloat("AoTargetMip", AmbientOcclusionDrt.TargetMip);
-			Shader.SetGlobalFloat("CubemapMaxMip", Cubemap.mipmapCount);
+			//Shader.SetGlobalFloat("CubemapMaxMip", Cubemap.mipmapCount);
 			Shader.SetGlobalInt("EnvironmentMapResolution", CubemapResolution);
 			//Cannot set bool/floats globally. For simplicity we do it for all computeShaders
 			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionShader, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
@@ -305,7 +305,7 @@ namespace SphereTracing
 				DeferredShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
 				DeferredShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture2);
 				DeferredShader.SetTexture(kernel.Id, "DeferredOutputTexture", _deferredOutput);
-				DeferredShader.SetTexture(kernel.Id, "Cubemap", Cubemap);
+				//DeferredShader.SetTexture(kernel.Id, "Cubemap", Cubemap);
 				//TODO: THIS IS TEMPORARY
 				DeferredShader.SetTexture(kernel.Id, "FakeCubemapRenderTexture", _fakeCubemapRenderTexture);
 				DeferredShader.SetTexture(kernel.Id, "EnvironmentMap", _environmentMap);
