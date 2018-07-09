@@ -50,4 +50,9 @@ struct StLight
 	float4 LightData2;
 };
 
+struct StMatrix
+{
+	float4x4 Matrix;
+};
+
 #endif // STRUCTS_INCLUDED

@@ -3,6 +3,7 @@ using System.Linq;
 using SphereTracing.DeferredRendering;
 using SphereTracing.Lights;
 using SphereTracing.Materials;
+using SphereTracing.Matrices;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -215,9 +216,10 @@ namespace SphereTracing
 
 			GenerateAmbientOcclusionSamples();
 			
-			SetShaderPropertiesOnce();
 			InitLights();
 			InitMaterials();
+			InitMatrices();
+			SetShaderPropertiesOnce();
 			
 			//At least we have to render environmentmap one
 			RenderEnvironmentMap();
@@ -260,10 +262,16 @@ namespace SphereTracing
 			foreach (var kernel in _sphereTracingFKernels)
 			{
 				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+				SphereTracingShader.SetBuffer(kernel.Id, "MaterialBuffer", _stMaterialBuffer);
+				SphereTracingShader.SetBuffer(kernel.Id, "MatrixBuffer", _stMatrixBuffer);
+				SphereTracingShader.SetBuffer(kernel.Id, "LightBuffer", _stLightBuffer);
 			}
 			foreach (var kernel in _sphereTracingKKernels)
 			{
 				SphereTracingShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingData);
+				SphereTracingShader.SetBuffer(kernel.Id, "MaterialBuffer", _stMaterialBuffer);
+				SphereTracingShader.SetBuffer(kernel.Id, "MatrixBuffer", _stMatrixBuffer);
+				SphereTracingShader.SetBuffer(kernel.Id, "LightBuffer", _stLightBuffer);
 			}
 			foreach (var kernel in _sphereTracingDownSamplerKernels)
 			{
@@ -275,6 +283,9 @@ namespace SphereTracing
 				AmbientOcclusionShader.SetTexture(kernel.Id, "SphereTracingDataTexture", _sphereTracingDataLow);
 				AmbientOcclusionShader.SetTexture(kernel.Id, "AmbientOcclusionTexture", AmbientOcclusionDrt.RenderTexture);
 				AmbientOcclusionShader.SetBuffer(kernel.Id, "AoSampleBuffer", _aoSampleBuffer);
+				AmbientOcclusionShader.SetBuffer(kernel.Id, "MaterialBuffer", _stMaterialBuffer);
+				AmbientOcclusionShader.SetBuffer(kernel.Id, "MatrixBuffer", _stMatrixBuffer);
+				AmbientOcclusionShader.SetBuffer(kernel.Id, "LightBuffer", _stLightBuffer);
 			}
 			foreach (var kernel in _sphereTracingAoUpSamplerKernels)
 			{
@@ -309,10 +320,13 @@ namespace SphereTracing
 				DeferredShader.SetTexture(kernel.Id, "DeferredOutputTexture", _deferredOutput);
 				//DeferredShader.SetTexture(kernel.Id, "Cubemap", Cubemap);
 				//TODO: THIS IS TEMPORARY
-				DeferredShader.SetTexture(kernel.Id, "FakeCubemapRenderTexture", _fakeCubemapRenderTexture);
+				//DeferredShader.SetTexture(kernel.Id, "FakeCubemapRenderTexture", _fakeCubemapRenderTexture);
 				DeferredShader.SetTexture(kernel.Id, "EnvironmentMap", _environmentMap);
 				//
 				DeferredShader.SetTexture(kernel.Id, "ConvolutedEnvironmentMap", _convolutedEnvironmentMapArray);
+				DeferredShader.SetBuffer(kernel.Id, "LightBuffer", _stLightBuffer);
+				DeferredShader.SetBuffer(kernel.Id, "MaterialBuffer", _stMaterialBuffer);
+				DeferredShader.SetBuffer(kernel.Id, "MatrixBuffer", _stMatrixBuffer);
 			}
 		}
 
@@ -361,6 +375,7 @@ namespace SphereTracing
 		{
 			UpdateStLights();
 			UpdateStMaterials();
+			UpdateStMatrices();
 			SetShaderPropertiesPerFrame();
 			
 			//Rerender sky to cubemap if we want to rendercontinuously
@@ -547,6 +562,7 @@ namespace SphereTracing
 			if (_stLights == null) _stLights = new List<StLight>();
 
 			Shader.SetGlobalInt("LightCount", LightCount);
+			Shader.SetGlobalBuffer("LightBuffer", _stLightBuffer);
 		}
 
 		public void RegisterStLight(StLight stLight)
@@ -578,7 +594,7 @@ namespace SphereTracing
 
 			_stLightBuffer.SetData(_stLightData);
 
-			DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "LightBuffer", _stLightBuffer);
+			//DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "LightBuffer", _stLightBuffer);
 			Shader.SetGlobalInt("LightCount", _stLights.Count);
 		}
 
@@ -595,17 +611,72 @@ namespace SphereTracing
 			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
 
 			Shader.SetGlobalInt("MaterialCount", StMaterials.Length);
+			Shader.SetGlobalBuffer("MaterialBuffer", _stMaterialBuffer);
 		}
 		
 		private void UpdateStMaterials()
 		{
 			_stMaterialBuffer.SetData(StMaterials.Select(x => x.MaterialData).ToArray());
 
-			DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
-			SphereTracingShader.SetBuffer(_sphereTracingKKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
-			AmbientOcclusionShader.SetBuffer(_sphereTracingAoKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
+			//DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
+			//SphereTracingShader.SetBuffer(_sphereTracingKKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
+			//AmbientOcclusionShader.SetBuffer(_sphereTracingAoKernels[ComputeShaderKernel].Id, "MaterialBuffer", _stMaterialBuffer);
 		}
 		
+		#endregion
+		
+		#region Matrices
+
+
+		public int MatrixCount;
+		
+		private StMatrixData[] _stMatrixData;
+		private List<StMatrix> _stMatrices;
+		private ComputeBuffer _stMatrixBuffer;
+
+		private void InitMatrices()
+		{
+			_stMatrixData = new StMatrixData[MatrixCount];
+			_stMatrixBuffer = new ComputeBuffer(MatrixCount, StMatrixData.GetSize(), ComputeBufferType.Default);
+			_stMatrixBuffer.SetData(_stMatrixData);
+			if (_stMatrices == null) _stMatrices = new List<StMatrix>();
+
+			Shader.SetGlobalInt("MatrixCount", MatrixCount);
+			Shader.SetGlobalBuffer("MatrixBuffer", _stMatrixBuffer);
+		}
+
+		public void RegisterStMatrix(StMatrix stMatrix)
+		{
+			if (_stMatrices != null && _stMatrices.All(item => item.GetInstanceID() != stMatrix.GetInstanceID())) _stMatrices.Add(stMatrix);
+		}
+
+		public void CleanStMatrices()
+		{
+			_stMatrices.RemoveAll(matrices => matrices == null || !matrices.IsActive);
+		}
+
+		private void UpdateStMatrices()
+		{
+			var i = 0;
+
+			foreach (var stMatrix in _stMatrices)
+			{
+				_stMatrixData[i] = stMatrix.GetStMatrixData();
+				i++;
+				if (i >= _stMatrixData.Length)
+				{
+					if (i > _stMatrixData.Length) Debug.LogWarning("There are more matrices in the scene than the matrix buffer can store."); 
+					break; 
+				}
+			}
+
+			_stMatrixBuffer.SetData(_stMatrixData);
+
+			//DeferredShader.SetBuffer(_deferredKernels[ComputeShaderKernel].Id, "MatrixBuffer", _stMatrixBuffer);
+			//Shader.SetGlobalBuffer("MatrixBuffer", _stMatrixBuffer);
+			Shader.SetGlobalInt("MatrixCount", _stMatrices.Count);
+		}
+
 		#endregion
 	}
 }

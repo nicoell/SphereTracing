@@ -16,11 +16,6 @@ bool EnableCubemap;
 TextureCube<float4> Cubemap;
 SamplerState sampler_Cubemap;
 
-StructuredBuffer<StMaterial> MaterialBuffer;
-int MaterialCount;
-StructuredBuffer<StLight> LightBuffer;
-int LightCount;
-
 float3 CameraDir;
 
 float3 GammaCorrection;

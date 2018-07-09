@@ -1,6 +1,15 @@
 #ifndef SHAREDINPUTS_INCLUDED
 #define SHAREDINPUTS_INCLUDED
 
+#include "../Defines/Structs.cginc"
+
+StructuredBuffer<StMatrix> MatrixBuffer;
+int MatrixCount;
+StructuredBuffer<StMaterial> MaterialBuffer;
+int MaterialCount;
+StructuredBuffer<StLight> LightBuffer;
+int LightCount;
+
 float AoTargetMip;
 float CubemapMaxMip;
 float4 PlateTextureSettings;

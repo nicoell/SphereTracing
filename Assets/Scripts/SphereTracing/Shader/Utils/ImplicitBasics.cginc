@@ -86,6 +86,21 @@ float sdEllipsoid(in float3 p, in float3 r)
 	return (length( p/r ) - 1.0) * min(min(r.x,r.y),r.z);
 }
 
+
+
+
+// polynomial smooth min (k = 0.1);
+float smin( float a, float b, float k )
+{
+    float h = saturate( 0.5+0.5*(b-a)/k);
+    return lerp( b, a, h ) - k*h*(1.0-h);
+}
+
+float2 opUSmooth( float2 d1, float2 d2, float k )
+{
+	return float2(smin(d1.x, d2.x, k), d1.y);
+}
+
 //Distance Operations
 
 //Union

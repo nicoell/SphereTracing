@@ -12,6 +12,12 @@
 #define MAT_FLOOR 3
 
 //Baked Matrices
+static const float4x4 M_IDENTITY =
+float4x4(1, 0, 0, 0, 
+0, 1, 0, 0, 
+0, 0, 1, 0, 
+0, 0, 0, 1); 
+
 static const float4x4 M_LEFTWALL =
 float4x4(1, 0, 0, 2, 
 0, 1, 0, 6, 
@@ -156,10 +162,13 @@ float2 Map(in float3 pos)
     //floor
 	float2 floor = FloorPlane(pos, 8, MAT_FLOOR);
 	
-	//Bounding Box Test
-    float2 bb = Box(pos, float3(10.25, 2, 13), M_BB, -1);
-    if (bb.x > 0.1) floor;
-
+	/*Bounding Box Test
+    loat2 bb = Box(pos, float3(10.25, 2, 13), M_BB, -1);
+    if (bb.x > 0.1) {
+        res = floor;
+        return opU(floor, bb);
+    }*/
+    
     //left wall
     float2 wall = Box(pos, float3(10,2,1), M_LEFTWALL, MAT_FLOOR);
     //holes in left wall
@@ -173,11 +182,9 @@ float2 Map(in float3 pos)
     //roof
     wall = opU(wall, Box(pos, float3(9,.5,3), M_ROOF, MAT_FLOOR));
 
-    res = opU(floor, wall);
+    res = opUSmooth(floor, wall, 0.1);
     res.x += PlateTexture(pos, PlateTextureSettings);
 
-
-    
     //pillars
     res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR1, MAT_FLOOR));
     res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR2, MAT_FLOOR));
@@ -187,8 +194,20 @@ float2 Map(in float3 pos)
     res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR6, MAT_FLOOR));
 
     //spheres
-    res = opU(res, Sphere(pos, .2, M_SPHERE, MAT_GREEN));
+    //res = opU(res, Sphere(pos, .2, M_SPHERE, MAT_GREEN));
     
+    float2 dynamicObjects;
+    for(int i = 0; i < MatrixCount; i++)
+    {
+        float4x4 m = MatrixBuffer[i].Matrix;
+        
+        float size = smin(abs(res.x), 1.0, 0.1);
+        float2 temp = Sphere(pos, size, m, MAT_RED);
+        dynamicObjects = (i == 0) ? temp : opUSmooth(dynamicObjects, temp, 0.1);
+    }
+    
+    res = (MatrixCount > 0) ? opU(res, dynamicObjects) : res;
+        
 	return res;
 }
 /*
