@@ -493,6 +493,7 @@ namespace SphereTracing
 		{
 			if (_stLightBuffer != null) _stLightBuffer.Release();
 			if (_stMaterialBuffer != null) _stMaterialBuffer.Release();
+			if (_stMatrixBuffer != null) _stMatrixBuffer.Release();
 			if (_aoSampleBuffer != null) _aoSampleBuffer.Release();
 			if (_deferredOutput != null) DestroyImmediate(_deferredOutput);
 			if (_sphereTracingData != null) DestroyImmediate(_sphereTracingData);
