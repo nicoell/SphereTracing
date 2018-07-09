@@ -10,6 +10,7 @@
 #define MAT_GREEN 1
 #define MAT_BLUE 2
 #define MAT_FLOOR 3
+#define MAT_WALLS 4
 
 //Baked Matrices
 static const float4x4 M_IDENTITY =
@@ -170,28 +171,28 @@ float2 Map(in float3 pos)
     }*/
     
     //left wall
-    float2 wall = Box(pos, float3(10,2,1), M_LEFTWALL, MAT_FLOOR);
-    //holes in left wall
-    wall = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE1, MAT_FLOOR), wall);
-    wall = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE2, MAT_FLOOR), wall);
-    wall = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE3, MAT_FLOOR), wall);
+    float2 wall = Box(pos, float3(10,2,1), M_LEFTWALL, MAT_WALLS);
     //leftwall 2
-    wall = opU(wall, Box(pos, float3(.5,2,10), M_LEFTWALL2, MAT_FLOOR));
+    wall = opU(wall, Box(pos, float3(.5,2,10), M_LEFTWALL2, MAT_WALLS));
     //rightwall
-    wall = opU(wall, Box(pos, float3(10,2,1), M_RIGHTWALL, MAT_FLOOR));
+    wall = opU(wall, Box(pos, float3(10,2,1), M_RIGHTWALL, MAT_WALLS));
     //roof
-    wall = opU(wall, Box(pos, float3(9,.5,3), M_ROOF, MAT_FLOOR));
+    wall = opU(wall, Box(pos, float3(9,.5,3), M_ROOF, MAT_WALLS));
 
-    res = opUSmooth(floor, wall, 0.1);
+    res = opU(floor, wall);
     res.x += PlateTexture(pos, PlateTextureSettings);
+    //holes in left wall
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE1, MAT_GREEN), res);
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE2, MAT_GREEN), res);
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE3, MAT_GREEN), res);
 
     //pillars
-    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR1, MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR2, MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR3, MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR4, MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR5, MAT_FLOOR));
-    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR6, MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR1, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR2, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR3, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR4, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR5, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR6, MAT_BLUE));
 
     //spheres
     //res = opU(res, Sphere(pos, .2, M_SPHERE, MAT_GREEN));
@@ -206,10 +207,15 @@ float2 Map(in float3 pos)
         dynamicObjects = (i == 0) ? temp : opUSmooth(dynamicObjects, temp, 0.1);
     }
     
+    dynamicObjects.x += 0.4 * sin(pos.x*3) * sin(pos.y*3) * sin(pos.z*3);                    //Add low freq offset
+    dynamicObjects.x += 0.05 * cos(20.0*pos.x) * cos(20.0*pos.y) * cos(20.0*pos.z);     //Add high freq offset
     res = (MatrixCount > 0) ? opU(res, dynamicObjects) : res;
         
 	return res;
 }
+
+
+
 /*
 
 

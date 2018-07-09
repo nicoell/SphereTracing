@@ -24,6 +24,9 @@ SamplerState sampler_ConvolutedEnvironmentMap;
 TextureCube<float4> EnvironmentMap;
 SamplerState sampler_EnvironmentMap;
 
+Texture2D<float4> BrdfLUT;
+//SamplerState sampler_linear
+
 Texture2DArray<float4> FakeCubemapRenderTexture;
 SamplerState sampler_FakeCubemapRenderTexture;
 
@@ -80,6 +83,199 @@ float ShadowSoft2(float3 lightPos, SphereTracingData surface, int k, float bias)
     return saturate(res);
 }
 
+void EvaluateSky(SphereTracingData surface, inout float3 skyColor)
+{
+    Ray r;
+    r.Origin = float3(0,0,0);
+    r.Direction = surface.RayDirection;
+    if (EnableCubemap){
+        skyColor += EnvironmentMap.SampleLevel(sampler_EnvironmentMap, r.Direction, 0).xyz;
+    } else {
+        //Use prodecural sky generation if cubemap is not enabled. Expensive!
+        skyColor += Background(r) * surface.Alpha ;
+    }
+}
+
+
+// Source from: https://github.com/KhronosGroup/glTF-WebGL-PBR/blob/master/shaders/pbr-frag.glsl
+//
+// References:
+// [1] Real Shading in Unreal Engine 4
+//     http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf
+// [2] Physically Based Shading at Disney
+//     http://blog.selfshadow.com/publications/s2012-shading-course/burley/s2012_pbs_disney_brdf_notes_v3.pdf
+// [3] README.md - Environment Maps
+//     https://github.com/KhronosGroup/glTF-WebGL-PBR/#environment-maps
+// [4] "An Inexpensive BRDF Model for Physically based Rendering" by Christophe Schlick
+//     https://www.cs.virginia.edu/~jdl/bib/appearance/analytic%20models/schlick94b.pdf
+float3 PBRShading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyColor)
+{
+    float3 outputColor = float3(.0, .0, .0);
+    int matId = (int) surface.MaterialId;
+	
+	if (sign(matId) >= 0)
+	{
+	    StMaterial mat = MaterialBuffer[matId];
+	    
+	    float3 color = float3(0, 0, 0);
+	    
+	    float perceptualRoughness = mat.PerceptualRoughness;
+	    float metallic = mat.Metallic;
+	    //Convert to Material Roughness by squaring the perceptualRoughness [2]
+	    float alphaRoughness = perceptualRoughness * perceptualRoughness;
+	    
+	    float3 baseColor = mat.BaseColor.rgb;// * mat.BaseColor.a;
+	    float3 f0 = (float3) 0.04;
+	    float3 diffuseColor = baseColor * ( (float3) 1.0 - f0);
+	    diffuseColor *= 1.0 - metallic;
+	    float3 specularColor = lerp(f0, baseColor, metallic);
+	    
+	    float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
+	    float reflectance90 = saturate(reflectance * 25);
+	    float3 specularEnvironmentR0 = specularColor;
+	    float3 specularEnvironmentR90 = (float3) 1.0 * reflectance90;
+	    
+	    float3 bentNormal = surface.Normal + ao.BentNormal;
+	    float3 n = surface.Normal;//EnableAmbientOcclusion ? surface.Normal + ao.BentNormal : surface.Normal;
+	    float3 v = normalize(CameraPos - surface.Position); //Direction from surface to CameraDir
+	    float3 reflection = -normalize(reflect(v, n));
+	    
+	    float NdotV = clamp(abs(dot(n, v)), 0.001, 1.0);
+	    
+        float specularOcclusion = EnableAmbientOcclusion ? lerp(1, ao.SpecularOcclusion, OcclusionExponent) : 1;
+        float diffuseOcclusion = EnableAmbientOcclusion ? lerp (1, length(bentNormal), OcclusionExponent) : 1;
+	    
+	    for(int i = 0; i < LightCount; i++)
+        {
+            StLight light = LightBuffer[i];
+            
+            float3 l; //Direction from surface to light
+            float3 lightColor;
+            float attenuation = 1.0;
+            float shadow = 1.0;
+            
+            if (light.LightType == 0)               // Point Light
+            {
+                float3 lightDir = light.LightData2.xyz - surface.Position;
+                l = normalize(lightDir);
+                lightColor = light.LightData.xyz;
+                float lightPower = light.LightData.w;
+                attenuation = lightPower / length(lightDir);
+                
+                shadow = ShadowSoft(light.LightData2.xyz, surface, 24, 1);
+            }
+            
+            
+            float3 h = normalize(l+v);
+            float NdotL = clamp(dot(n, l), 0.001, 1.0);
+            float NdotH = saturate(dot(n, h));
+            float LdotH = saturate(dot(l, h));
+            float VdotH = saturate(dot(v, h));
+            
+            //Calculate Fresnel F, GeometricAttenuation G and Microfacet Distribution D
+            float3 F; float G, D;
+                //Calculate the Fresnel Reflection term (from [4])
+                F = specularEnvironmentR0 + (specularEnvironmentR90 - specularEnvironmentR0) * 
+                            pow(saturate(1.0 - VdotH), 5.0);
+                            
+                //Calculate the specular geometric attenuation, where rougher material will reflect less light back to the viewer.
+                //Based on [1] eq.4 with modifications as proposed in [2]
+                float arSq = alphaRoughness * alphaRoughness;
+                float NdotLSq = NdotL * NdotL;
+                float NdotVSq = NdotV * NdotV;
+                float attenuationL = 2.0 * NdotL / ( NdotL + sqrt( arSq + (1.0 - arSq) * NdotLSq));
+                float attenuationV = 2.0 * NdotV / ( NdotV + sqrt( arSq + (1.0 - arSq) * NdotVSq));
+                G = attenuationL * attenuationV;
+                
+                //Models the distribution of microfacet normals across the area being drawn.
+                //Implementation from "Average Irregularity Representation of a Roughened Surface for Ray Reflection" by T. S. Trowbridge, and K. P. Reitz
+                // Follows the distribution function recommended in the SIGGRAPH 2013 course notes from EPIC Games [1], Equation 3.
+                float f = (NdotH * arSq - NdotH) * NdotH + 1.0;
+                D = arSq / (PI * f * f);
+                
+            //Calculate analytical lighting contribution
+            float3 diffuseContrib, specContrib;
+                //Basic lambertian diffuse from [1] eq.1
+                float3 lambertian = diffuseColor / PI;
+                diffuseContrib = (1.0 - F) * lambertian;
+                //diffuseContrib *= diffuseOcclusion;
+                specContrib = F * G * D / (4.0 * NdotL * NdotV);
+                //specContrib *= specularOcclusion;
+            
+            //Calculate final intensity as reflectance (BRDF) scaled by the energy of light (cosine law)
+            color += NdotL * lightColor * (diffuseContrib + specContrib) * shadow;
+            
+            
+            /*
+                float lod = (1.0 - perceptualRoughness) * (ConvolutionLayerCount - 1.0);
+                float3 brdf = BrdfLUT.SampleLevel(sampler_linear_clamp, float2(NdotV, 1.0 - perceptualRoughness), 0.0).rgb;
+                //TODO: Diffuse EnvironmentMap
+                //float3 iblDiffuseLight = ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(n, ConvolutionLayerCount - 1.0), 0.0).rgb;
+                
+                float tap0Index = floor(lod);
+                float tap1Index = min(ceil(lod), ConvolutionLayerCount - 1);
+                float3 specularLightTap0 = ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(reflection, tap0Index), 0.0).rgb;
+                float3 specularLightTap1 = ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(reflection, tap1Index), 0.0).rgb;
+                float3 iblSpecularLight = lerp(specularLightTap0 specularLightTap1 frac(lod));
+                
+                //float3 iblDiffuseContrib = iblDiffuseLight * diffuseColor; 
+                //iblDiffuseContrib *= diffuseOcclusion;
+                float3 iblSpecularContrib = iblSpecularLight * (specularColor * brdf.x + brdf.y);
+                //iblSpecularContrib *= specularOcclusion;
+                */
+                //iblContribution = iblDiffuseContrib * iblSpecularContrib;
+            
+        }
+	    
+	    //Calculate lightning contribution from image based light source, which are our Preconvoled Environment Maps
+        float3 iblContribution = (float3) 0;
+        if (EnableAmbientOcclusion && EnableGlobalIllumination && EnableCubemap){
+            //Diffuse IBL based on coneAngle
+            float coneAngle = saturate(length(bentNormal) * 2 - 1.0);
+            float cubemapArrayIndex = coneAngle * (ConvolutionLayerCount - 1);
+            float3 direction = normalize(bentNormal);
+            float tap0Index = floor(cubemapArrayIndex);
+            float tap1Index = min(ceil(cubemapArrayIndex), ConvolutionLayerCount - 1);
+            float4 skyColorTap0 = ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(direction, tap0Index), 0.0);
+            float4 skyColorTap1 = ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(direction, tap1Index), 0.0);
+            //skyRadiance = skyColorDebug;
+            float3 skyRadiance = lerp(skyColorTap0.xyz, skyColorTap1.xyz, frac(cubemapArrayIndex));
+           
+            skyRadiance *= dot(bentNormal, surface.Normal);
+           
+            //float3 brdf = BrdfLUT.SampleLevel(sampler_linear_clamp, float2(NdotV, 1.0 - perceptualRoughness), 0.0).rgb;
+            
+            float3 iblDiffuseContrib = skyRadiance * diffuseColor * diffuseOcclusion;   
+            //float3 iblSpecularContrib = skyRadiance * specularColor * specularOcclusion;
+            
+            //Specular IBL based on material reflectance
+            float lod = (1.0 - perceptualRoughness) * (ConvolutionLayerCount - 1.0);
+            float3 brdf = BrdfLUT.SampleLevel(sampler_linear_clamp, float2(NdotV, 1.0 - perceptualRoughness), 0.0).rgb;
+            tap0Index = floor(lod);
+            tap1Index = min(ceil(lod), ConvolutionLayerCount - 1);
+
+            float3 specularLightTap0 = ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(reflection, tap0Index), 0.0).rgb;
+            float3 specularLightTap1 = ConvolutedEnvironmentMap.SampleLevel(sampler_ConvolutedEnvironmentMap, float4(reflection, tap1Index), 0.0).rgb;
+            float3 iblSpecularLight = lerp(specularLightTap0, specularLightTap1, frac(lod));
+            
+            float3 iblSpecularContrib = iblSpecularLight * (specularColor * brdf.x + brdf.y * metallic) * diffuseOcclusion;
+                       
+            iblContribution = iblDiffuseContrib + iblSpecularContrib; 
+        }
+        
+        color += iblContribution; 
+        
+        color += mat.EmissiveColor;
+        
+        outputColor = color;
+	    
+	} else 
+	{
+	    EvaluateSky(surface, skyColor);
+	}
+	return float3(outputColor);
+}
+/*
 float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyColor)
 {
     float3 color = float3(.0, .0, .0);
@@ -147,7 +343,7 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
             float specularAngle = max(dot(surface.Normal, halfDir), 0.0);
             specular = pow(specularAngle, mat.Shininess);
 
-            diffuseColor += mat.DiffuseColor * lambertian * lightColor * attenuation * diffuseOcclusion * shadow;
+            diffuseColor += mat.DiffuseColor * lambertian * lightColor * attenuation * shadow;
             specularColor += mat.SpecularColor * specular * lightColor * attenuation * specularOcclusion * shadow;
         }
         
@@ -201,7 +397,7 @@ float3 Shading(SphereTracingData surface, AmbientOcclusion ao, inout float3 skyC
  
 	return float3(color);
 }
-
+*/
 void Main(uint3 id)
 {
     float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
@@ -224,7 +420,7 @@ void Main(uint3 id)
     //Only do shading if Alpha is greater than some epsilon
     if ((surface.Alpha) > ALPHAEPSILON) {
         if (EnableAmbientOcclusion) surfaceAo = LoadAmbientOcclusion(id.xy, 0);
-        surfaceColor = Shading(surface, surfaceAo, surfaceSkyColor);
+        surfaceColor = PBRShading(surface, surfaceAo, surfaceSkyColor);
         surfaceColor *= (surface.Alpha - represent.Alpha);
         surfaceSkyColor *= (surface.Alpha - represent.Alpha);
     }
@@ -234,7 +430,7 @@ void Main(uint3 id)
     //Only do shading if Alpha is greater than some epsilon
     if (represent.Alpha > ALPHAEPSILON) {
         if (EnableAmbientOcclusion) representAo = LoadAmbientOcclusion(id.xy, 1);
-        representColor = Shading(represent, representAo, representSkyColor);
+        representColor = PBRShading(represent, representAo, representSkyColor);
         representColor *= represent.Alpha;
         representSkyColor *= represent.Alpha;
     }

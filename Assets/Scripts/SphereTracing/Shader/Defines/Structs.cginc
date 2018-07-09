@@ -28,10 +28,10 @@ struct Ray
 struct StMaterial
 {
 	int MaterialType;
-	float4 DiffuseColor;
-	float4 SpecularColor;
-	float Shininess;
-	float ReflectiveF;
+	float4 BaseColor;
+	float4 EmissiveColor;
+	float Metallic;
+	float PerceptualRoughness;
 };
 
 struct Hit

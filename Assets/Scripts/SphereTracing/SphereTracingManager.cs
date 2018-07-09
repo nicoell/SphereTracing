@@ -43,7 +43,8 @@ namespace SphereTracing
 		[Space(5)]
 		public ComputeShader EnvironmentMapRenderer;
 		public ComputeShader EnvironmentMapConvolution;
-
+		public Texture2D BrdfLUT;
+		
 		[Header("Resolution")]
 		public bool UseCustomResolution;
 		public Vector2Int CustomResolution;
@@ -324,6 +325,7 @@ namespace SphereTracing
 				DeferredShader.SetTexture(kernel.Id, "EnvironmentMap", _environmentMap);
 				//
 				DeferredShader.SetTexture(kernel.Id, "ConvolutedEnvironmentMap", _convolutedEnvironmentMapArray);
+				DeferredShader.SetTexture(kernel.Id, "BrdfLUT", BrdfLUT);
 				DeferredShader.SetBuffer(kernel.Id, "LightBuffer", _stLightBuffer);
 				DeferredShader.SetBuffer(kernel.Id, "MaterialBuffer", _stMaterialBuffer);
 				DeferredShader.SetBuffer(kernel.Id, "MatrixBuffer", _stMatrixBuffer);

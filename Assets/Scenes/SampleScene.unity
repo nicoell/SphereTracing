@@ -333,7 +333,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsActive: 0
   SphereTracingManager: {fileID: 282840812}
-  LightColor: {r: 0, g: 0.5882353, b: 1, a: 1}
+  LightColor: {r: 0.75686276, g: 0.73333335, b: 1, a: 1}
   LightPower: 0.3
 --- !u!4 &166009458
 Transform:
@@ -514,7 +514,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsActive: 0
   SphereTracingManager: {fileID: 282840812}
-  LightColor: {r: 1, g: 0.273241, b: 0.23113209, a: 1}
+  LightColor: {r: 1, g: 0.8392157, b: 0.72156864, a: 1}
   LightPower: 0.3
 --- !u!4 &227377067
 Transform:
@@ -730,16 +730,17 @@ MonoBehaviour:
     type: 3}
   EnvironmentMapConvolution: {fileID: 7200000, guid: 256fa90b302844ff8aa245a37466cecd,
     type: 3}
+  BrdfLUT: {fileID: 2800000, guid: f334843210a7b49448f1ec747d2cf7b7, type: 3}
   UseCustomResolution: 1
   CustomResolution: {x: 1920, y: 1080}
   ComputeShaderKernel: 1
-  SphereTracingSteps: 297
-  IterativeSteps: 0
+  SphereTracingSteps: 256
+  IterativeSteps: 1
   RenderOutput: 0
   GammaCorrection: {x: 2, y: 2, z: 2}
   RadiusPixel: 0.003
   DisableAntiAliasing: 1
-  LightCount: 4
+  LightCount: 3
   ClearColor: {r: 0, g: 0, b: 0, a: 1}
   PlateTextureSettings: {x: 1, y: 0.0075, z: 0.0025, w: 20}
   EnableAmbientOcclusion: 1
@@ -767,6 +768,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 51db7d2e4bd0c8d4e8062480961ee18c, type: 2}
   - {fileID: 11400000, guid: 2a3b711b99116be4f99211759c868e9e, type: 2}
   - {fileID: 11400000, guid: 0c57a3dab6f7e3e4393e07b1ac6f7cf4, type: 2}
+  - {fileID: 11400000, guid: 171659da56ea4ef468f9043902542f2f, type: 2}
   MatrixCount: 30
 --- !u!20 &282840813
 Camera:
@@ -2101,8 +2103,8 @@ MonoBehaviour:
   SphereTracingManager: {fileID: 282840812}
   Spline: {fileID: 1185291878}
   Object: {fileID: 1212056654221686, guid: b828ca2b5cdc2c647b54eef5c543f4ea, type: 2}
-  ObjectCount: 5
-  SplineOffset: 0.005
+  ObjectCount: 4
+  SplineOffset: 0.01
   Duration: 30
 --- !u!4 &1894562680
 Transform:
@@ -2185,7 +2187,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsActive: 0
   SphereTracingManager: {fileID: 282840812}
-  LightColor: {r: 0, g: 1, b: 0.116336346, a: 1}
+  LightColor: {r: 0.72156864, g: 1, b: 0.7137255, a: 1}
   LightPower: 0.3
 --- !u!4 &2086221648
 Transform:

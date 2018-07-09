@@ -186,8 +186,8 @@ void Main(uint3 id)
         //Evaluate Material to calculate new Ray Direction
         StMaterial surfaceMat = MaterialBuffer[surface.MaterialId];
         StMaterial representMat = MaterialBuffer[represent.MaterialId];
-        surface.Alpha *= surfaceMat.ReflectiveF;
-        represent.Alpha *= representMat.ReflectiveF;
+        surface.Alpha *= surfaceMat.Metallic; //TODO: metallic ist not the correct reflective factor
+        represent.Alpha *= representMat.Metallic;//TODO: metallic ist not the correct reflective factor
         
         if (sign(surface.MaterialId) < 0) surface.Alpha = 0;
         if (sign(represent.MaterialId) < 0) represent.Alpha = 0;

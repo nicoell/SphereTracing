@@ -12,11 +12,12 @@ namespace SphereTracing.Materials
 	public struct StMaterialData
 	{
 		public int MaterialType;
-		public Color DiffuseColor;
-		public Color SpecularColor;
-		public float Shininess;
-		[Range(0,1)]
-		public float ReflectiveF;
+		public Color BaseColor;
+		public Color EmissiveColor;
+		[Range(0, 1)]
+		public float Metallic;
+		[Range(0, 1)]
+		public float PerceptualRoughness;
 		
 		/// <summary>
 		/// Returns the size of the struct in Bytes.

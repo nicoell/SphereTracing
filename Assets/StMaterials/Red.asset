@@ -13,7 +13,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MaterialData:
     MaterialType: 0
-    DiffuseColor: {r: 1, g: 0, b: 0, a: 0}
-    SpecularColor: {r: 0.9791666, g: 1, b: 0.25, a: 0}
-    Shininess: 16
-    ReflectiveF: 0.049
+    BaseColor: {r: 1, g: 1, b: 1, a: 0}
+    EmissiveColor: {r: 0, g: 0, b: 0, a: 0}
+    Metallic: 1
+    PerceptualRoughness: 0.508
