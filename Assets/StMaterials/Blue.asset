@@ -13,7 +13,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MaterialData:
     MaterialType: 0
-    BaseColor: {r: 0, g: 0.62263966, b: 1, a: 1}
+    BaseColor: {r: 1, g: 1, b: 1, a: 1}
     EmissiveColor: {r: 0, g: 0, b: 0, a: 0}
-    Metallic: 0.108
-    PerceptualRoughness: 0.692
+    Metallic: 0
+    PerceptualRoughness: 0.8

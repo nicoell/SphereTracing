@@ -742,7 +742,7 @@ MonoBehaviour:
   UseOldShadowTechnique: 0
   MaxShadowSteps: 32
   ShadowSoftnessFactor: 10
-  ShadowBias: 0
+  ShadowBias: 0.02
   RadiusPixel: 0.003
   DisableAntiAliasing: 1
   LightCount: 3

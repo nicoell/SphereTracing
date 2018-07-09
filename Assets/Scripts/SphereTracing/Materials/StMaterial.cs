@@ -18,6 +18,8 @@ namespace SphereTracing.Materials
 		public float Metallic;
 		[Range(0, 1)]
 		public float PerceptualRoughness;
+		[Range(0, 16)]
+		public float RimFactor;
 		
 		/// <summary>
 		/// Returns the size of the struct in Bytes.
@@ -26,7 +28,7 @@ namespace SphereTracing.Materials
 		/// <returns></returns>
 		public static int GetSize()
 		{
-			return sizeof(int) + 10 * sizeof(float);
+			return sizeof(int) + 11 * sizeof(float);
 		}
 	}
 }

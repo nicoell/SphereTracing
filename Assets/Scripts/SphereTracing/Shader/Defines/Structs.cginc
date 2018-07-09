@@ -32,6 +32,7 @@ struct StMaterial
 	float4 EmissiveColor;
 	float Metallic;
 	float PerceptualRoughness;
+	float RimFactor;
 };
 
 struct Hit

@@ -153,6 +153,7 @@ float3 PBRShading(SphereTracingData surface, AmbientOcclusion ao, inout float3 s
 	    StMaterial mat = MaterialBuffer[matId];
 	    
 	    float3 color = float3(0, 0, 0);
+	    float rimFactorModifier = 0;
 	    
 	    float perceptualRoughness = mat.PerceptualRoughness;
 	    float metallic = mat.Metallic;
@@ -205,11 +206,16 @@ float3 PBRShading(SphereTracingData surface, AmbientOcclusion ao, inout float3 s
                             ShadowSoftBidirectional(light.LightData2.xyz, l, surface, ShadowSoftnessFactor, ShadowBias)) 
                          : 1;
                 //shadow = EnableShadows ? ShadowSoftOldTechnique(light.LightData2.xyz, l, surface, ShadowSoftnessFactor, 0.5) : 1;
+                
+                rimFactorModifier += attenuation;
             }
             
             
             float3 h = normalize(l+v);
             float NdotL = clamp(dot(n, l), 0.001, 1.0);
+            
+            if (length(lightColor) * shadow * NdotL < 0.001) continue;
+            
             float NdotH = saturate(dot(n, h));
             float LdotH = saturate(dot(l, h));
             float VdotH = saturate(dot(v, h));
@@ -307,7 +313,9 @@ float3 PBRShading(SphereTracingData surface, AmbientOcclusion ao, inout float3 s
         
         color += iblContribution; 
         
-        color += mat.EmissiveColor;
+        float rim = (mat.MaterialType == 1) ? pow(1 - NdotV, max(0, mat.RimFactor - 1.5 * rimFactorModifier)) : 1;
+        color += rim * mat.EmissiveColor;
+        
         
         outputColor = color;
 	    
