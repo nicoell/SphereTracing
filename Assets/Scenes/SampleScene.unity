@@ -334,7 +334,7 @@ MonoBehaviour:
   IsActive: 0
   SphereTracingManager: {fileID: 282840812}
   LightColor: {r: 0.75686276, g: 0.73333335, b: 1, a: 1}
-  LightPower: 0.3
+  LightPower: 2
 --- !u!4 &166009458
 Transform:
   m_ObjectHideFlags: 0
@@ -515,7 +515,7 @@ MonoBehaviour:
   IsActive: 0
   SphereTracingManager: {fileID: 282840812}
   LightColor: {r: 1, g: 0.8392157, b: 0.72156864, a: 1}
-  LightPower: 0.3
+  LightPower: 2
 --- !u!4 &227377067
 Transform:
   m_ObjectHideFlags: 0
@@ -738,6 +738,11 @@ MonoBehaviour:
   IterativeSteps: 1
   RenderOutput: 0
   GammaCorrection: {x: 2, y: 2, z: 2}
+  EnableShadows: 1
+  UseOldShadowTechnique: 0
+  MaxShadowSteps: 32
+  ShadowSoftnessFactor: 10
+  ShadowBias: 0
   RadiusPixel: 0.003
   DisableAntiAliasing: 1
   LightCount: 3
@@ -2188,7 +2193,7 @@ MonoBehaviour:
   IsActive: 0
   SphereTracingManager: {fileID: 282840812}
   LightColor: {r: 0.72156864, g: 1, b: 0.7137255, a: 1}
-  LightPower: 0.3
+  LightPower: 2
 --- !u!4 &2086221648
 Transform:
   m_ObjectHideFlags: 0

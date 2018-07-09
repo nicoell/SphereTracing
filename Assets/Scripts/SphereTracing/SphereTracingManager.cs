@@ -56,11 +56,21 @@ namespace SphereTracing
 		[Range(2, 1024)]
 		public int SphereTracingSteps = 32;
 		[Range(0, 32)]
-		public int IterativeSteps = 0;
 		[Header("Render Settings")]
+		public int IterativeSteps = 0;
 		public RenderOutput RenderOutput = RenderOutput.Color;
 		public Vector3 GammaCorrection = Vector3.one;
-
+		
+		[Header("Shadow Settings")]
+		public bool EnableShadows = true;
+		public bool UseOldShadowTechnique = true;
+		[Range(2, 128)]
+		public int MaxShadowSteps = 32;
+		[Range(2, 128)]
+		public float ShadowSoftnessFactor = 10;
+		[Range(0, 3)]
+		public float ShadowBias = 1;
+	
 		[Header("Anti Aliasing")]
 		[Range(0.001f, 1f)]
 		public float RadiusPixel = 0.01f;
@@ -343,12 +353,15 @@ namespace SphereTracing
 			Shader.SetGlobalFloat("SpecularOcclusionStrength", SpecularOcclusionStrength);
 			Shader.SetGlobalFloat("BentNormalFactor", BentNormalFactor);
 			Shader.SetGlobalFloat("ConeAngle", ConeAngle);
+			Shader.SetGlobalFloat("ShadowSoftnessFactor", ShadowSoftnessFactor);
+			Shader.SetGlobalFloat("ShadowBias", ShadowBias);
 			Shader.SetGlobalInt("RenderOutput", (int) RenderOutput);
 			Shader.SetGlobalInt("SphereTracingSteps", SphereTracingSteps);
 			Shader.SetGlobalInt("AmbientOcclusionSamples", AmbientOcclusionSamples);
 			Shader.SetGlobalInt("AmbientOcclusionSteps", AmbientOcclusionSteps);
 			Shader.SetGlobalInt("ConvolutionLayerCount", ConvolutionLayerCount);
 			Shader.SetGlobalInt("SampleCount", ConvolutionSampleCount);
+			Shader.SetGlobalInt("MaxShadowSteps", MaxShadowSteps);
 			Shader.SetGlobalVector("Time", new Vector4(Time.time, Time.time / 20f, Time.deltaTime, 1f / Time.deltaTime));
 			Shader.SetGlobalVector("CameraPos", Camera.main.transform.position);
 			Shader.SetGlobalVector("CameraDir", Camera.main.transform.forward);
@@ -363,6 +376,8 @@ namespace SphereTracing
 			var computeShaders = new[] { SphereTracingShader, SphereTracingDownSampler, AmbientOcclusionShader, AmbientOcclusionUpSampler, BilateralFilterShader, DeferredShader};
 			foreach (var computeShader in computeShaders)
 			{
+				computeShader.SetBool("EnableShadows", EnableShadows);
+				computeShader.SetBool("UseOldShadowTechnique", UseOldShadowTechnique);
 				computeShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
 				computeShader.SetBool("DisableAntiAliasing", DisableAntiAliasing);
 				computeShader.SetBool("EnableGlobalIllumination", EnableGlobalIllumination);
