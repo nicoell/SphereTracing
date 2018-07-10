@@ -200,6 +200,7 @@ void Main(uint3 id)
         if (sign(surface.MaterialId) < 0) surface.Alpha = 0;
         if (sign(represent.MaterialId) < 0) represent.Alpha = 0;
         //Test again if we need to calculate this pass
+        [branch]
         if (surface.Alpha <= ALPHAEPSILON && represent.Alpha <= ALPHAEPSILON){
             //If not, we need to write the new alphas to texture before we stop
             WriteSphereTracingData(id.xy, 0, surface);

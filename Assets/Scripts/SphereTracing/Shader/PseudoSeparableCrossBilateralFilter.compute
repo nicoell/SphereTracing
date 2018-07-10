@@ -54,6 +54,7 @@ void Main(uint3 id, uint3 gtid, float2 direction)
     
     gsBilateralData[PAD(gtid.xy)] = centerData;
     
+    [branch]
     if (CASTDIR(gtid.xy) == 0) {
         //Load BilateralData 'below'
         [unroll]

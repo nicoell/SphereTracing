@@ -190,6 +190,7 @@ float3 PBRShading(SphereTracingData surface, AmbientOcclusion ao, inout float3 s
             float attenuation = 1.0;
             float shadow = 1.0;
             
+            [branch]
             if (light.LightType == 0)               // Point Light
             {
                 float3 lightDir = light.LightData2.xyz - surface.Position;
@@ -199,12 +200,21 @@ float3 PBRShading(SphereTracingData surface, AmbientOcclusion ao, inout float3 s
                 attenuation = lightPower / length(lightDir);
                 lightColor *= attenuation;
                 
-                shadow = EnableShadows ? 
+                [branch]
+                if (EnableShadows) {
+                    [branch]
+                    if (UseOldShadowTechnique) {
+                        shadow = ShadowSoft(light.LightData2.xyz, surface, ShadowSoftnessFactor, ShadowBias);
+                    } else {
+                        shadow = ShadowSoftBidirectional(light.LightData2.xyz, l, surface, ShadowSoftnessFactor, ShadowBias);
+                    }
+                }
+                /*shadow = EnableShadows ? 
                             (UseOldShadowTechnique ? 
                             //ShadowSoftOldTechnique(light.LightData2.xyz, l, surface, ShadowSoftnessFactor, ShadowBias) :
                             ShadowSoft(light.LightData2.xyz, surface, ShadowSoftnessFactor, ShadowBias) :
                             ShadowSoftBidirectional(light.LightData2.xyz, l, surface, ShadowSoftnessFactor, ShadowBias)) 
-                         : 1;
+                         : 1;*/
                 //shadow = EnableShadows ? ShadowSoftOldTechnique(light.LightData2.xyz, l, surface, ShadowSoftnessFactor, 0.5) : 1;
                 
                 rimFactorModifier += attenuation;
@@ -214,6 +224,7 @@ float3 PBRShading(SphereTracingData surface, AmbientOcclusion ao, inout float3 s
             float3 h = normalize(l+v);
             float NdotL = clamp(dot(n, l), 0.001, 1.0);
             
+            [branch]
             if (length(lightColor) * shadow * NdotL < 0.001) continue;
             
             float NdotH = saturate(dot(n, h));
@@ -277,6 +288,7 @@ float3 PBRShading(SphereTracingData surface, AmbientOcclusion ao, inout float3 s
 	    
 	    //Calculate lightning contribution from image based light source, which are our Preconvoled Environment Maps
         float3 iblContribution = (float3) 0;
+        [branch]
         if (EnableAmbientOcclusion && EnableGlobalIllumination && EnableCubemap){
             //Diffuse IBL based on coneAngle
             float coneAngle = saturate(length(bentNormal) * 2 - 1.0);
@@ -468,7 +480,9 @@ void Main(uint3 id)
 	
     float3 surfaceColor = (float3) 0;
     //Only do shading if Alpha is greater than some epsilon
+    [branch]
     if ((surface.Alpha) > ALPHAEPSILON) {
+        [branch]
         if (EnableAmbientOcclusion) surfaceAo = LoadAmbientOcclusion(id.xy, 0);
         surfaceColor = PBRShading(surface, surfaceAo, surfaceSkyColor);
         surfaceColor *= (surface.Alpha - represent.Alpha);
@@ -478,7 +492,9 @@ void Main(uint3 id)
     //represent Shading
     float3 representColor = (float3) 0;
     //Only do shading if Alpha is greater than some epsilon
+    [branch]
     if (represent.Alpha > ALPHAEPSILON) {
+        [branch]
         if (EnableAmbientOcclusion) representAo = LoadAmbientOcclusion(id.xy, 1);
         representColor = PBRShading(represent, representAo, representSkyColor);
         representColor *= represent.Alpha;
@@ -493,6 +509,7 @@ void Main(uint3 id)
     if (IsFirstPass) DeferredOutputTexture[uint2(id.xy)] = ClearColor;
     
     //Add Color on DeferredOutputTexture
+    [branch]
     if (RenderOutput == 0) DeferredOutputTexture[uint2(id.xy)] =      DeferredOutputTexture[uint2(id.xy)] + float4(outputColor, 1);
     
     //Or draw some debug Outputs
