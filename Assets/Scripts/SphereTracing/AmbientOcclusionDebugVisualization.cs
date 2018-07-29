@@ -55,12 +55,27 @@ namespace SphereTracing
 			var quaternion = Quaternion.LookRotation(normal, up);
 			var prevConeDir = Vector3.zero;
 
+			if (DrawHemisphere)
+			{
+				Gizmos.color = new Color(1, 1, 1, 0.04f);
+				Gizmos.DrawMesh(HemisphereMesh, origin, quaternion);
+				//Draw a Hemisphere for better visualization
+				Gizmos.color = new Color(0, 0, 0, 0.3f);
+				Gizmos.DrawWireMesh(HemisphereMesh, origin, quaternion);
+			}
 			
 			for (var coneIndex = 0; coneIndex < AmbientOcclusionSamples; coneIndex++)
 			{
+				
 				var coneDir = Sampling.HemisphericalFibonacciMapping(coneIndex, AmbientOcclusionSamples,
 					RandomNumber * 2 * Mathf.PI, CorrectSamplesWithConeAngle ? GetTanConeAngle(ConeAngle) : Mathf.Clamp01(ConeAngle));
 				var coneDirWorld = coneDir.x * tangent + coneDir.y * bitangent + coneDir.z * normal;
+				
+				var coneColor = new Color(1f, 1f, 1f, 0.1f);
+				coneColor.r = Mathf.Abs(coneDir.x);
+				coneColor.g = Mathf.Abs(coneDir.y);//coneDir.y;
+				coneColor.b = Mathf.Sin(coneDir.z);//Mathf.Sin(Mathf.Abs(coneDir.z) * Mathf.PI);
+				
 				//Prevent self occlusion
 				//coneDirWorld += normal * GetTanConeAngle(ConeAngle);
 				//coneDirWorld = coneDirWorld.normalized;
@@ -70,40 +85,43 @@ namespace SphereTracing
 				//Draw sample position as sphere
 				if (DrawSamples)
 				{
-					Gizmos.color = Color.cyan;
-					Gizmos.DrawSphere(origin + coneDirWorld, 0.025f);
+					var sampleColor = coneColor * 4;
+					sampleColor.a = 0.7f;
+					Gizmos.color = sampleColor;
+					Gizmos.DrawSphere(origin + coneDirWorld * MaxTraceDistance, 0.025f);
 				}
 
 				//Draw connection between samples positions
 				if (DrawConnectedSamples && coneIndex > 0)
 				{
-					Gizmos.color = new Color(1f, (float) coneIndex / AmbientOcclusionSamples,
-						1 - (float) coneIndex / AmbientOcclusionSamples, 0.1f);
-					Gizmos.DrawLine(origin + prevConeDir, origin + coneDirWorld);
+					Gizmos.color = coneColor;
+					Gizmos.DrawLine(origin + prevConeDir * MaxTraceDistance, origin + coneDirWorld * MaxTraceDistance);
 				}
 
 				prevConeDir = coneDirWorld;
 
-				if (DrawAllCones || DrawSelectedCone && coneIndex == GizmoConeId)
+				if (DrawAllCones)
 				{
-					Gizmos.color = Color.cyan;
-					Gizmos.DrawLine(origin, origin + coneDirWorld);
+					var sampleColor = coneColor;
+					sampleColor.a = 0.7f;
+					Gizmos.color = sampleColor;
+					Gizmos.DrawLine(origin, origin + coneDirWorld * MaxTraceDistance);
+				}
+				if (DrawSelectedCone && coneIndex == GizmoConeId)
+				{
+					var sampleColor = coneColor;
+					if (!CorrectSamplesWithConeAngle) sampleColor.a = 0.7f;
+					Gizmos.color = sampleColor;
+					Gizmos.DrawLine(origin, origin + coneDirWorld * MaxTraceDistance);
 
-					Gizmos.color = new Color(0f, 1f, 1f, 0.05f);
+					Gizmos.color = coneColor;
 					var quaternionCone = Quaternion.LookRotation(coneDirWorld, up);
-					Gizmos.DrawWireMesh(_coneMesh, origin, quaternionCone);
+					if (CorrectSamplesWithConeAngle) Gizmos.DrawWireMesh(_coneMesh, origin, quaternionCone);
 				}
 			}
 			
 
-			if (DrawHemisphere)
-			{
-				//Draw a Hemisphere for better visualization
-				Gizmos.color = new Color(1, 1, 1, 0.01f);
-				Gizmos.DrawWireMesh(HemisphereMesh, origin, quaternion);
-				Gizmos.color = new Color(1, 1, 1, 0.2f);
-				Gizmos.DrawMesh(HemisphereMesh, origin, quaternion);
-			}
+			
 
 			if (DrawCoordinateSystem)
 			{
@@ -143,7 +161,7 @@ namespace SphereTracing
 			if (Mathf.Abs(ConeAngle - _oldConeAngle) > Mathf.Epsilon ||
 			    Mathf.Abs(MaxTraceDistance - _oldTraceDistance) > Mathf.Epsilon ||
 			    AmbientOcclusionSamples != _oldAmbientOcclusionSamplese)
-				_coneMesh = CreateConeMesh(10, GetTanConeAngle(ConeAngle) * MaxTraceDistance, MaxTraceDistance);
+				_coneMesh = CreateConeMesh(24, GetTanConeAngle(ConeAngle) * MaxTraceDistance, MaxTraceDistance);
 
 			_oldConeAngle = ConeAngle;
 			_oldTraceDistance = MaxTraceDistance;

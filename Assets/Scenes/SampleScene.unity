@@ -223,7 +223,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 74464663}
   m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: 2.5, y: -6.5, z: 0}
+  m_LocalPosition: {x: 2.5, y: -6.5, z: -0.09}
   m_LocalScale: {x: 2.3999999, y: 1.1000005, z: 2.4000008}
   m_Children: []
   m_Father: {fileID: 447966640}
@@ -744,6 +744,7 @@ MonoBehaviour:
   ShadowSoftnessFactor: 10
   ShadowBias: 0.02
   RadiusPixel: 0.003
+  EnableCheckerBoardDownsampling: 1
   DisableAntiAliasing: 1
   LightCount: 3
   ClearColor: {r: 0, g: 0, b: 0, a: 1}
@@ -1188,7 +1189,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 695287743}
   m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: -1, y: -6.5, z: 0}
+  m_LocalPosition: {x: -1, y: -6.5, z: -0.09}
   m_LocalScale: {x: 2.3999999, y: 1.1000005, z: 2.4000008}
   m_Children: []
   m_Father: {fileID: 447966640}
@@ -1654,7 +1655,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1355062630}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 6, y: -6.5, z: 0}
+  m_LocalPosition: {x: 6, y: -6.5, z: -0.09}
   m_LocalScale: {x: 2.4, y: 1.1, z: 2.4}
   m_Children: []
   m_Father: {fileID: 447966640}
@@ -1747,19 +1748,19 @@ MonoBehaviour:
   HemisphereMesh: {fileID: 4300000, guid: 5a08726348dc96649ac8b416e14a9b40, type: 3}
   DrawConnectedSamples: 0
   DrawSamples: 1
-  DrawCoordinateSystem: 1
+  DrawCoordinateSystem: 0
   DrawHemisphere: 1
   DrawAllCones: 1
   DrawSelectedCone: 1
   DrawConeSpheres: 1
-  GizmoConeId: 19
+  GizmoConeId: 6
   DebugSurfaceNormal: {x: 0, y: 1, z: 0}
   AmbientOcclusionSamples: 20
   AmbientOcclusionSteps: 6
-  RandomNumber: 0
-  MaxTraceDistance: 1
+  RandomNumber: 0.228
+  MaxTraceDistance: 3.98
   CorrectSamplesWithConeAngle: 1
-  ConeAngle: 4.72
+  ConeAngle: 5
 --- !u!4 &1388183302
 Transform:
   m_ObjectHideFlags: 0
@@ -1767,7 +1768,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1388183300}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 10.472, y: -8, z: 1.06}
+  m_LocalPosition: {x: 7.1, y: -8, z: 2.66}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}

@@ -84,31 +84,31 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
 	    
 	    //We didn't hit the surface yet so sample next sphere
 	    float2 nextMap = Map(r.Origin + (t + currentMap.x) * r.Direction);
-
-	    //Test if we are inside pixelRadius
-	    if (currentMap.x < (t * RadiusPixel)) {
-	        //We are inside the pixelRadius but we didn't hit a surface
-	        //Test if the next sphere is bigger than the current one
-	        if (nextMap.x > currentMap.x){
-	            //Next sphere is bigger, meaning we move away from a surface
-	            //Test if we have a represent by making sure it's the first time a sphere gets bigger next step
-	            if (representFound == false){
-	                //We found a represent
-	                representFound = true;
-	                //But we only want to save it, if it's the smallest represent in sphere radius
-	                //and if we either did not found a represent yet or if we are still on same Material //this is Hacky and not garantued to produce nice results
-	                if (currentMap.x < representHit.DistanceToWorld && (representHit.MaterialId == -1 || representHit.MaterialId == currentMap.y)){
-	                    //We found a new smallest represent.
-	                    representHit.DistanceToWorld = currentMap.x;
-	                    representHit.TraceDistance = t;
-	                    representHit.MaterialId = currentMap.y;
-	                }
-	            }
-	        } else {
-	            //Next sphere is not bigger, meaning we are getting closer to a surface
-	            representFound = false;
-	        }
-	    }
+        
+        //Test if we are inside pixelRadius
+        if (currentMap.x < (t * RadiusPixel)) {
+            //We are inside the pixelRadius but we didn't hit a surface
+            //Test if the next sphere is bigger than the current one
+            if (nextMap.x > currentMap.x){
+                //Next sphere is bigger, meaning we move away from a surface
+                //Test if we have a represent by making sure it's the first time a sphere gets bigger next step
+                if (representFound == false){
+                    //We found a represent
+                    representFound = true;
+                    //But we only want to save it, if it's the smallest represent in sphere radius
+                    //and if we either did not found a represent yet or if we are still on same Material //this is Hacky and not garantued to produce nice results
+                    if (currentMap.x < representHit.DistanceToWorld && (representHit.MaterialId == -1 || representHit.MaterialId == currentMap.y)){
+                        //We found a new smallest represent.
+                        representHit.DistanceToWorld = currentMap.x;
+                        representHit.TraceDistance = t;
+                        representHit.MaterialId = currentMap.y;
+                    }
+                }
+            } else {
+                //Next sphere is not bigger, meaning we are getting closer to a surface
+                representFound = false;
+            }
+        }
 	    
 	    t += currentMap.x;
 	    currentMap = nextMap;
@@ -128,6 +128,70 @@ void RayMarch(in Ray r, inout Hit surfaceHit, inout Hit representHit)
 	    representHit.Position = r.Origin + representHit.TraceDistance * r.Direction;
 	}
     
+    //Test if we reached max SphereTracingSteps
+    if (i == SphereTracingSteps) {
+        //Use latest hit instead of background
+        surfaceHit.TraceDistance = t;
+		surfaceHit.MaterialId = currentMap.y;
+		surfaceHit.DistanceToWorld = currentMap.x;
+		surfaceHit.Position = r.Origin + surfaceHit.TraceDistance * r.Direction;
+    }
+}
+
+/*
+ *  RayMarch
+ * 
+ *  Performs Sphere Tracing along given Ray
+ *      x: Total trace distance travelled along Ray (t * rayDir)
+ *      y: Material ID of hit object (-1 if nothing hit)
+ */
+void RayMarchNoAA(in Ray r, inout Hit surfaceHit, inout Hit representHit)
+{
+	//TODO: Don't use clippingplane as starting trace distance for reflections 
+	surfaceHit.TraceDistance = ClippingPlanes.x;    //Start tracing at Near Plane
+	surfaceHit.DistanceToWorld = ClippingPlanes.y;  
+	surfaceHit.Alpha = 1;
+	surfaceHit.MaterialId = -1; //No material is represented by material <= 0
+	
+	representHit.Position = float3(0,0,0);
+    representHit.TraceDistance = ClippingPlanes.x; //Start tracing at Near Plane
+	representHit.DistanceToWorld = 1000000;
+	representHit.Alpha = 0;
+	representHit.MaterialId = -1; //No material is represented by material <= 0
+    
+    //const float radiusP = 0.01; //radius of Pixel
+    float t = ClippingPlanes.x;
+    
+    //float3 pointOnRay = r.Origin + t * r.Direction;
+    float2 currentMap = Map(r.Origin + t * r.Direction); //start with negative distance and no material
+    int i = 0;
+    for(; i < SphereTracingSteps; i++)
+	{   
+	    float epsilon = 0.0015 * t;
+	    //Test if we hit the surface
+	    if (currentMap.x <= epsilon) {
+	        //We hit the surface.
+	        surfaceHit.DistanceToWorld = currentMap.x;
+            surfaceHit.TraceDistance = t;
+            surfaceHit.MaterialId = currentMap.y;
+            surfaceHit.Position = r.Origin + surfaceHit.TraceDistance * r.Direction;
+            break;
+	    }
+	    
+	    //We didn't hit the surface yet so sample next sphere
+	    float2 nextMap = Map(r.Origin + (t + currentMap.x) * r.Direction);
+
+	    t += currentMap.x;
+	    currentMap = nextMap;
+	    
+	    //Test if we exceeded far clippingplane
+	    if (t > ClippingPlanes.y){
+	        surfaceHit.TraceDistance = ClippingPlanes.y;
+	        surfaceHit.MaterialId = -1;
+	        break;
+	    }
+	}
+	    
     //Test if we reached max SphereTracingSteps
     if (i == SphereTracingSteps) {
         //Use latest hit instead of background
@@ -224,7 +288,12 @@ void Main(uint3 id)
 
     Hit surfaceHit;
     Hit representHit;
-    RayMarch(r, surfaceHit, representHit);
+    [branch]
+    if (DisableAntiAliasing){
+        RayMarchNoAA(r, surfaceHit, representHit);
+    } else {
+        RayMarch(r, surfaceHit, representHit);
+    }
     EvaluateHit(id.xy, r, surfaceHit, surface);
     EvaluateHit(id.xy, r, representHit, represent);
 

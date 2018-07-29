@@ -17,4 +17,4 @@ MonoBehaviour:
     EmissiveColor: {r: 0, g: 0.9137255, b: 0.11436883, a: 1}
     Metallic: 1
     PerceptualRoughness: 0.384
-    RimFactor: 5.8
+    RimFactor: 10.01

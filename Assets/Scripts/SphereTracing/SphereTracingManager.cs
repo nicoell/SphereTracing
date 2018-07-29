@@ -76,6 +76,7 @@ namespace SphereTracing
 		public float RadiusPixel = 0.01f;
 		
 		[Header("Features")]
+		public bool EnableCheckerBoardDownsampling;
 		public bool DisableAntiAliasing;
 		public int LightCount = 1;
 		public Color ClearColor = Color.black;
@@ -377,6 +378,7 @@ namespace SphereTracing
 			foreach (var computeShader in computeShaders)
 			{
 				computeShader.SetBool("EnableShadows", EnableShadows);
+				computeShader.SetBool("EnableCheckerBoardDownsampling", EnableCheckerBoardDownsampling);
 				computeShader.SetBool("UseOldShadowTechnique", UseOldShadowTechnique);
 				computeShader.SetBool("EnableAmbientOcclusion", EnableAmbientOcclusion);
 				computeShader.SetBool("DisableAntiAliasing", DisableAntiAliasing);
