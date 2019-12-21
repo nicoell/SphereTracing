@@ -3,7 +3,18 @@ guid: 4271bbd365b1fd04ea1de901ba897585
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - SphereTracingShader: {fileID: 7200000, guid: 50aef8ce42f6a024b893455bc10a19c6,
+      type: 3}
+  - SphereTracingDownSampler: {fileID: 7200000, guid: 34fdd2b453ed045ffa6aac8740abcc1b,
+      type: 3}
+  - AmbientOcclusionShader: {fileID: 7200000, guid: dde25da9e5e4482a9d81ea551401070e,
+      type: 3}
+  - AmbientOcclusionUpSampler: {fileID: 7200000, guid: 157b981b92924e748a8998fdeaf29a19,
+      type: 3}
+  - BilateralFilterShader: {fileID: 7200000, guid: 71ad783c4a8247ff971876263ef03bbe,
+      type: 3}
+  - DeferredShader: {fileID: 7200000, guid: ee9c665b7ba842b1ad6ca91d1cab0fd5, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

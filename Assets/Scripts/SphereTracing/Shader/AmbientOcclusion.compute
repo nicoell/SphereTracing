@@ -1,0 +1,204 @@
+#pragma kernel AmbientOcclusionH    ST_R    AO_RW    AO       HIGHDOWNSAMPLED
+#pragma kernel AmbientOcclusionM    ST_R    AO_RW    AO       MIDDOWNSAMPLED
+#pragma kernel AmbientOcclusionL    ST_R    AO_RW    AO       LOWDOWNSAMPLED
+
+#include "Defines/HighMidLowThreads.cginc"
+#include "Defines/SharedConstants.cginc"
+#include "Defines/Structs.cginc"
+
+#include "Inputs/SharedInputs.cginc"
+#include "Inputs/SphereTracingInputs.cginc"
+#include "Inputs/TextureAccessAwareInputs.cginc"
+
+#include "Utils/ImplicitBasics.cginc" 
+#include "Utils/StructSampleFuncs.cginc"
+#include "Utils/StructWriteFuncs.cginc"
+#include "Utils/Random.cginc"
+
+#include "WorldLogic.cginc"
+
+float3 SphericalFibonacciMapping(float i, float n, float rand)
+{
+	float phi = i * 2.0 * PI * GOLDENRATIO + rand;
+	float zi = 1.0 - (2.0*i+1.0)/(n);
+	float theta = sqrt(1.0 - zi*zi);
+	return float3( cos(phi) * theta, sin(phi) * theta, zi);
+}
+
+float3 HemisphericalFibonacciMapping(float i, float n, float rand, float minZ)
+{
+	float phi = i * 2.0 * PI * GOLDENRATIO + rand;
+	float zi = 1.0 - (2.0*i+1.0)/(2*n);
+	zi = zi * (1.0 - minZ) + minZ;
+	float theta = sqrt(1.0 - zi*zi);
+	return normalize(float3( cos(phi) * theta, sin(phi) * theta, zi));
+}
+
+float3 UniformSampleHemisphere(float r1, float r2)
+{
+	float cosTheta = 2.0 * r1 - 1.0;
+	float sinTheta = sqrt(1.0 - r1 * r1);
+	float phi = 2 * PI * r2;
+	return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+} 
+
+void GetCoordinateSystem(in float3 normal, out float3 tangent, out float3 bitangent)
+{
+	float3 up = abs(normal.y) < 0.999 ? float3(0, 1, 0) : float3(1,0,0);
+	tangent = normalize( cross( up, normal ) );
+	bitangent = normalize( cross( normal, tangent ) );   
+}
+
+float ApproxConeConeIntersection(float arcLength1, float arcLength2, float angleBetweenCones)
+{
+	float angleDiff = abs(arcLength1 - arcLength2);
+	
+	return smoothstep(0, 1,
+	 1.0 - saturate((angleBetweenCones - angleDiff) / (arcLength1 + arcLength2 - angleDiff)));
+}
+
+float GetConeVisibility(in Ray coneRay, in float tanConeAngle)
+{
+	float minSphereRadius = 0.0001; //TODO: Causes artefacts if not small enough
+	float maxSphereRadius = 100.0;
+
+	float minVisibility = 1.0;
+	float minDistance = 1000000;
+	float traceDistance = 0.1;
+	float minStepSize = AmbientOcclusionMaxDistance / (AmbientOcclusionSteps); //TODO: Also causes artefacts
+	
+	for(int step = 0; step < AmbientOcclusionSteps; step++)
+	{
+		float epsilon = 0.00015 * traceDistance;
+		float3 pointOnRay = coneRay.Origin + traceDistance * coneRay.Direction;
+		float distance = Map(pointOnRay).x;
+		
+		minDistance = min(minDistance, distance);
+		float sphereRadius = clamp(tanConeAngle * traceDistance, minSphereRadius, maxSphereRadius);
+		
+		float visibility = saturate(distance / sphereRadius);
+		
+		// Fade visibility based on distance
+		float distanceFraction = traceDistance / AmbientOcclusionMaxDistance;
+		visibility = max(visibility, saturate(distanceFraction * distanceFraction * 0.6f));
+		
+		minVisibility = min(minVisibility, visibility);
+		traceDistance += max(distance, minStepSize);
+
+		if (distance < epsilon || traceDistance > AmbientOcclusionMaxDistance) break;
+	}
+	
+	if (minDistance < 0 || step == AmbientOcclusionSteps)
+	{
+		minVisibility = 0;
+	}
+	
+	return minVisibility;
+}
+
+float3 ComputeBentNormal(in float2 uv, in float3 pos, in float3 normal)
+{
+	float3 tangent;
+	float3 bitangent;
+	GetCoordinateSystem(normal, tangent, bitangent);
+	
+	float3 bentNormal = float3(0, 0, 0);
+	Ray coneRay;
+	coneRay.Origin = pos + 0.001 * normal;
+	
+	float rand = hash12(uv * 100.0) * 2 * PI;
+	//float rand = max(uv.x, uv.y) * 2 * PI;
+	int randInt = 360 * hash12(uv * 100);
+	//int randInt = 360 * (uv.x * uv.y);
+
+    float tanConeAngle = tan(ConeAngle / AmbientOcclusionSamples);             //TODO: Revisit
+    for (int ci = 0; ci < AmbientOcclusionSamples; ci++)
+    {
+        float3 cDir;
+        //if (uv.x < 0.5){
+        cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand, tanConeAngle);
+        //} else {
+        //cDir = HemisphericalFibonacciMapping((float) ci, (float) AmbientOcclusionSamples, rand, 0);
+        //float2 r2 = hash22(ci * 100.0 + uv * 100.0);
+        //cDir = UniformSampleHemisphere(r2.x, r2.y);
+        //}
+        float3 cDirWorld = cDir.y * bitangent + cDir.x * tangent + cDir.z * normal; //TODO: Possible error source
+        
+        coneRay.Direction = cDirWorld;
+        
+        float cVisibility = GetConeVisibility(coneRay, tanConeAngle);
+        //cVisibility = 1;
+        
+        bentNormal += cVisibility * coneRay.Direction;
+    }
+    
+    bentNormal /= AmbientOcclusionSamples;
+    //Add normalize factor to further reduce self occlusion  
+    const float nFactor = 7.0 / 255.0;
+    bentNormal *= AmbientOcclusionSamples < 3 ? 1.0 : 1.0 + nFactor * (AmbientOcclusionSamples) - nFactor;
+    //Since self occlusion is not perfectly linear we make it work perfect for 9 samples, which we use.
+    bentNormal *= AmbientOcclusionSamples == 9 ? 1.16 : 1.0;
+	
+	
+	return bentNormal;
+}
+
+void ComputeAO(in float2 uv, in float3 pos, in float3 dir, in float3 normal, in float reflectiveF, out float3 bentNormal, out float specularOcclusion)
+{
+	//TODO: Improve ao factor computation
+	bentNormal = ComputeBentNormal(uv,pos,normal);
+	bentNormal = lerp(normal, bentNormal, BentNormalFactor);
+	float bentNormalLength = length(bentNormal);
+	float reflectionConeAngle = max(reflectiveF, 0.1) * PI;
+	float unoccludedAngle = bentNormalLength * PI * SpecularOcclusionStrength;
+	float angleBetween = acos(dot(bentNormal, reflect(dir, normal) / max(bentNormalLength, 0.001)));
+	specularOcclusion = ApproxConeConeIntersection(reflectionConeAngle, unoccludedAngle, angleBetween);
+	specularOcclusion = lerp(0, specularOcclusion, saturate((unoccludedAngle - 0.1) / 0.2));
+}
+
+void CalcAO(uint3 id)
+{
+	float2 uv = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
+	
+	SphereTracingData surface = SampleSphereTracingData(sampler_point_clamp, uv, 0, 0);
+	SphereTracingData represent = SampleSphereTracingData(sampler_point_clamp, uv, 1, 0);
+	AmbientOcclusion surfaceAo;
+	AmbientOcclusion representAo;
+	
+	//Sample SphereTracingData from surface and represent
+	
+	
+	
+	//Do not calculate ao if a surface' alpha doesn't have an impact
+	[branch]
+	if (surface.Alpha > ALPHAEPSILON && sign(surface.MaterialId) >= 0) {
+		StMaterial surfaceMat = MaterialBuffer[surface.MaterialId];
+		ComputeAO(uv, surface.Position, (surface.RayDirection), surface.Normal, surfaceMat.Metallic,//TODO: metallic ist not the correct reflective factor
+			surfaceAo.BentNormal, surfaceAo.SpecularOcclusion);
+			
+		surfaceAo.BentNormal -= surface.Normal; //Save the change of normals.
+	} else {
+		surfaceAo.BentNormal = (float3) 0;
+		surfaceAo.SpecularOcclusion = 0;
+	}
+	[branch]
+	if (represent.Alpha > ALPHAEPSILON) {
+		StMaterial representMat = MaterialBuffer[represent.MaterialId];
+		ComputeAO(uv, represent.Position, represent.RayDirection, represent.Normal, representMat.Metallic, //TODO: metallic ist not the correct reflective factor
+			representAo.BentNormal, representAo.SpecularOcclusion);
+		representAo.BentNormal -= surface.Normal; //Save the change of normals.
+	} else {
+		representAo.BentNormal = (float3) 0;
+		representAo.SpecularOcclusion = 0;
+	}
+			 
+	WriteAmbientOcclusion(id.xy, 0, surfaceAo);
+	WriteAmbientOcclusion(id.xy, 1, representAo);
+}
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionH (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionM (uint3 id : SV_DispatchThreadID) { CalcAO(id); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void AmbientOcclusionL (uint3 id : SV_DispatchThreadID) { CalcAO(id); }

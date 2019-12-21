@@ -1,0 +1,136 @@
+#pragma kernel AOHorizontalH    ST_R    AO_R    HORIZONTAL    HIGH1D
+#pragma kernel AOHorizontalM    ST_R    AO_R    HORIZONTAL    MID1D
+#pragma kernel AOHorizontalL    ST_R    AO_R    HORIZONTAL    LOW1D
+#pragma kernel AOVerticalH      ST_R    AO_R    VERTICAL      HIGH1D
+#pragma kernel AOVerticalM      ST_R    AO_R    VERTICAL      MID1D
+#pragma kernel AOVerticalL      ST_R    AO_R    VERTICAL      LOW1D
+
+#include "Defines/HighMidLowThreads.cginc"
+#include "Defines/Structs.cginc"
+
+#include "Inputs/SharedInputs.cginc"
+#include "Inputs/TextureAccessAwareInputs.cginc"
+
+#include "Utils/StructSampleFuncs.cginc"
+#include "Utils/StructLoadFuncs.cginc"
+#include "Utils/StructWriteFuncs.cginc"
+
+//Filter kernelsize to each side of pixel. Total kernelsize is 2*FilterSize + 1
+//#define FilterSize 4
+#define FilterSize 14
+float RangeSigma;
+RWTexture2DArray<float4> AmbientOcclusionTarget;
+
+struct BilateralData 
+{
+    float4 Ao;
+    float3 Normal;
+    float TraceDistance;
+};
+
+#ifdef HORIZONTAL
+    #define ThreadLength ThreadsX
+    #define SharedDataSize (2*FilterSize) + ThreadsX
+    #define CASTDIR(xy) xy.x
+#else //VERTICAL
+    #define ThreadLength ThreadsY
+    #define SharedDataSize (2*FilterSize) + ThreadsY
+    #define CASTDIR(xy) xy.y
+#endif
+
+#define PAD(xy) (CASTDIR(xy) + FilterSize)
+
+groupshared BilateralData gsBilateralData[SharedDataSize];
+
+void Main(uint3 id, uint3 gtid, float2 direction)
+{
+    float2 uv = float2((id.x + 0.5) / Resolution.x, (id.y + 0.5) / Resolution.y);
+    float2 uvstep = float2(1.0 / Resolution.x, 1.0 / Resolution.y) * direction;
+    
+    BilateralData centerData;
+    centerData.Ao = LoadAmbientOcclusionAsFloat4(id.xy, id.z);
+    centerData.Normal = LoadNormal(id.xy, id.z);
+    centerData.TraceDistance = LoadTraceDistance(id.xy, id.z);
+    
+    gsBilateralData[PAD(gtid.xy)] = centerData;
+    
+    [branch]
+    if (CASTDIR(gtid.xy) == 0) {
+        //Load BilateralData 'below'
+        [unroll]
+        for(int i = 1; i <= FilterSize; i++) {
+            BilateralData bData;
+            //Use sample functions for correct bound wrap
+            float2 curUv = uv - (i * uvstep);
+            bData.Ao = SampleAmbientOcclusionAsFloat4(sampler_point_clamp, curUv, id.z, 0.0);
+            bData.Normal = SampleNormal(sampler_point_clamp, curUv, id.z, 0.0);
+            bData.TraceDistance = SampleTraceDistance(sampler_point_clamp, curUv, id.z, 0.0);
+            
+            gsBilateralData[PAD(gtid.xy) - i] = bData;
+        }
+        
+    } else if (CASTDIR(gtid.xy) == (ThreadLength - 1)) 
+    {
+        //Load BilateralData 'above'
+        [unroll]
+        for(int i = 1; i <= FilterSize; i++) {
+            
+            BilateralData bData;
+            //Use sample functions for correct bound wrap
+            float2 curUv = uv + (i * uvstep);
+            bData.Ao = SampleAmbientOcclusionAsFloat4(sampler_point_clamp, curUv, id.z, 0.0);
+            bData.Normal = SampleNormal(sampler_point_clamp, curUv, id.z, 0.0);
+            bData.TraceDistance = SampleTraceDistance(sampler_point_clamp, curUv, id.z, 0.0);
+            
+            gsBilateralData[PAD(gtid.xy) + i] = bData;
+        }
+    }
+    
+    //Blocks execution of all threads in a group until all group shared accesses have been completed and all threads in the group have reached this call.
+    GroupMemoryBarrierWithGroupSync();
+        
+    //const float discreteWeights[5] = {0.20236, 0.179044, 0.124009, 0.067234, 0.028532};
+    const float discreteWeights[15] = {0.079954, 0.078376, 0.073827, 0.066823, 0.05812, 0.048575, 0.039011, 0.030106, 0.022325, 0.015908, 0.010893, 0.007167, 0.004531, 0.002753, 0.001607};
+    const float epsilon = 0.001;
+    
+    float4 aoFiltered;
+    aoFiltered = centerData.Ao * discreteWeights[0];
+    float totalWeight = discreteWeights[0];
+
+    [unroll]
+    for (int i = 1; i <= FilterSize; i++) {
+        [unroll]
+        for(int sign = -1; sign <= 1; sign += 2){
+            BilateralData bData;
+            bData = gsBilateralData[PAD(gtid.xy) + sign * i];
+            
+            float depthDiff = abs(centerData.TraceDistance - bData.TraceDistance);
+            float depthWeight = 1.0 / (epsilon + centerData.TraceDistance * .01 + depthDiff); //Warning: centerData.TraceDistance * .01 is some arbitrary linear factor.
+            
+            float normalWeight = pow(abs(dot(centerData.Normal, bData.Normal)), 32);
+
+            float combinedWeight = discreteWeights[i] * depthWeight * normalWeight;
+            totalWeight += combinedWeight;
+            
+            aoFiltered += bData.Ao * combinedWeight;
+        }
+    }
+    
+    aoFiltered /= totalWeight;
+
+    AmbientOcclusionTarget[id] = aoFiltered;
+    
+}
+
+[numthreads(ThreadsX, 1, ThreadsZ)]
+void AOHorizontalH ( uint3 id : SV_DispatchThreadID, uint3 gtid : SV_GroupThreadID) { Main(id, gtid, float2(1, 0)); }
+[numthreads(ThreadsX, 1, ThreadsZ)]
+void AOHorizontalM ( uint3 id : SV_DispatchThreadID, uint3 gtid : SV_GroupThreadID) { Main(id, gtid, float2(1, 0)); }
+[numthreads(ThreadsX, 1, ThreadsZ)]
+void AOHorizontalL ( uint3 id : SV_DispatchThreadID, uint3 gtid : SV_GroupThreadID) { Main(id, gtid, float2(1, 0)); }
+[numthreads(1, ThreadsY, ThreadsZ)]
+void AOVerticalH ( uint3 id : SV_DispatchThreadID, uint3 gtid : SV_GroupThreadID) { Main(id, gtid, float2(0, 1)); }
+[numthreads(1, ThreadsY, ThreadsZ)]
+void AOVerticalM ( uint3 id : SV_DispatchThreadID, uint3 gtid : SV_GroupThreadID) { Main(id, gtid, float2(0, 1)); }
+[numthreads(1, ThreadsY, ThreadsZ)]
+void AOVerticalL ( uint3 id : SV_DispatchThreadID, uint3 gtid : SV_GroupThreadID) { Main(id, gtid, float2(0, 1)); }

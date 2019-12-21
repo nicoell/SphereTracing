@@ -1,0 +1,39 @@
+﻿#pragma kernel SphereTracingDownSampleH    ST_R     ST_LOW_RW    HIGHDOWNSAMPLED
+#pragma kernel SphereTracingDownSampleM    ST_R     ST_LOW_RW    MIDDOWNSAMPLED
+#pragma kernel SphereTracingDownSampleL    ST_R     ST_LOW_RW    LOWDOWNSAMPLED
+
+
+#include "Defines/HighMidLowThreads.cginc"
+#include "Defines/Structs.cginc"
+
+#include "Inputs/SharedInputs.cginc"
+#include "Inputs/TextureAccessAwareInputs.cginc"
+
+#include "Utils/StructCustomSampleFuncs.cginc"
+#include "Utils/StructSampleFuncs.cginc"
+#include "Utils/StructWriteFuncs.cginc"
+
+bool EnableCheckerBoardDownsampling;
+
+void Main(uint3 id, float2 direction)
+{
+    float2 uvCenterLow = float2((id.x + 0.5) / AoResolution.x, (id.y + 0.5) / AoResolution.y);
+    float2 uvStepFull = float2(1.0 / Resolution.x, 1.0 / Resolution.y) * direction;
+
+    SphereTracingData stDownsampled;
+    [branch]
+    if (EnableCheckerBoardDownsampling){
+        stDownsampled = DownsampleSphereTracingData(uvCenterLow, uvStepFull, id.z, 0.0);
+    } else {
+        stDownsampled = SampleSphereTracingData(sampler_point_clamp, uvCenterLow, id.z, 0.0);
+    }
+    
+    WriteSphereTracingDataLow(id.xy, id.z, stDownsampled);
+}
+
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingDownSampleH ( uint3 id : SV_DispatchThreadID) { Main(id, float2(1, 0)); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingDownSampleM ( uint3 id : SV_DispatchThreadID) { Main(id, float2(1, 0)); }
+[numthreads(ThreadsX, ThreadsY, ThreadsZ)]
+void SphereTracingDownSampleL ( uint3 id : SV_DispatchThreadID) { Main(id, float2(1, 0)); }

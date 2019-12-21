@@ -1,19 +1,266 @@
 #ifndef WORLDLOGIC_INCLUDED
 #define WORLDLOGIC_INCLUDED
 
-#include "UniformVariables.cginc"       //Contains the resources set from CPU.
-#include "ImplicitBasics.cginc"
-#include "StructDefinitions.cginc"
-
-float3 Background(in Ray r);
+#include "Defines/SharedConstants.cginc"
+#include "Inputs/SharedInputs.cginc"
+#include "Utils/ImplicitBasics.cginc" 
 
 //Definition of Material IDs
 #define MAT_RED 0
 #define MAT_GREEN 1
 #define MAT_BLUE 2
 #define MAT_FLOOR 3
+#define MAT_WALLS 4
 
+//Baked Matrices
+static const float4x4 M_IDENTITY =
+float4x4(1, 0, 0, 0, 
+0, 1, 0, 0, 
+0, 0, 1, 0, 
+0, 0, 0, 1); 
+
+static const float4x4 M_LEFTWALL =
+float4x4(1, 0, 0, 2, 
+0, 1, 0, 6, 
+0, 0, 1, 0, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_WALLHOLE1 =
+float4x4(1, 0, 0, -6, 
+0, -4.371139E-08, -1, -2.84124E-07, 
+0, 1, -4.371139E-08, 6.5, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_WALLHOLE2 =
+float4x4(1, 0, 0, -2.5, 
+0, -4.371139E-08, -1, -2.84124E-07, 
+0, 1, -4.371139E-08, 6.5, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_WALLHOLE3 =
+float4x4(1, 0, 0, 1, 
+0, -4.371139E-08, -1, -2.84124E-07, 
+0, 1, -4.371139E-08, 6.5, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_LEFTWALL2 =
+float4x4(1, 0, 0, -8, 
+0, 1, 0, 6, 
+0, 0, 1, 9, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_RIGHTWALL =
+float4x4(1, 0, 0, 2, 
+0, 1, 0, 6, 
+0, 0, 1, -6, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_ROOF =
+float4x4(1, 0, 0, 3, 
+0, 1, 0, 4.5, 
+0, 0, 1, -2, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR1 =
+float4x4(1, 0, 0, 10, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR2 =
+float4x4(1, 0, 0, 7, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR3 =
+float4x4(1, 0, 0, 4, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR4 =
+float4x4(1, 0, 0, 1, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR5 =
+float4x4(1, 0, 0, -2, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_PILLAR6 =
+float4x4(1, 0, 0, -5, 
+0, 1, 0, 6.5, 
+0, 0, 1, -3, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_SPHERE =
+float4x4(1, 0, 0, -5, 
+0, 1, 0, 7, 
+0, 0, 1, -4, 
+0, 0, 0, 1); 
+ 
+static const float4x4 M_BB =
+float4x4(1, 0, 0, 1.75, 
+0, 1, 0, 6, 
+0, 0, 1, 6, 
+0, 0, 0, 1); 
+ 
 //Objects in the world.
+float PlateTexture(float3 pos, uniform float4 plateSettings)
+{   
+    float distanceToCamera = length(pos - CameraPos);
+    if (distanceToCamera > plateSettings.w) return 0;
+     
+    float disp = 0;
+    float dist = plateSettings.x;
+    float size = plateSettings.y;
+    float depth = plateSettings.z;
+    
+    float m = min(min(abs(pos.x) % dist, abs(pos.y) % dist), abs(pos.z) % dist);
+    disp += (m < size) ? depth : 0;
+
+    return disp * (1 - saturate(length(pos - CameraPos) / plateSettings.w));
+}
+
+float2 FloorPlane(in float3 pos, in float offset, in float mat){
+    return float2(pos.y + offset + PlateTexture(pos, PlateTextureSettings), mat);
+}
+
+float2 Cylinder(float3 pos, float2 h, float4x4 M, float mat)
+{
+    pos = opTx(pos, M);
+    return float2(sdCappedCylinder(pos, h), mat);
+}
+
+float2 Box(float3 pos, float3 d, float4x4 M, float mat)
+{
+    pos = opTx(pos, M);
+    return float2(sdBox(pos, d), mat);
+}
+
+float2 Sphere(float3 pos, float rad, float4x4 M, float mat)
+{
+    pos = opTx(pos, M);
+    return float2(sdSphere(pos, rad), mat);
+}
+
+
+/*
+ *  Map
+ * 
+ *  Map containing all the implicit geometry in the world, aka the function calls of signed distance functions.
+ *  Returns float2 with:
+ *      x: Signed Distance from position to world.
+ *      y: MaterialID of object in world.
+ */
+float2 Map(in float3 pos)
+{   
+	float2 res;
+    //floor
+	float2 floor = FloorPlane(pos, 8, MAT_FLOOR);
+	
+	/*Bounding Box Test
+    loat2 bb = Box(pos, float3(10.25, 2, 13), M_BB, -1);
+    if (bb.x > 0.1) {
+        res = floor;
+        return opU(floor, bb);
+    }*/
+    
+    //left wall
+    float2 wall = Box(pos, float3(10,2,1), M_LEFTWALL, MAT_WALLS);
+    //leftwall 2
+    wall = opU(wall, Box(pos, float3(.5,2,10), M_LEFTWALL2, MAT_WALLS));
+    //rightwall
+    wall = opU(wall, Box(pos, float3(10,2,1), M_RIGHTWALL, MAT_WALLS));
+    //roof
+    wall = opU(wall, Box(pos, float3(9,.5,3), M_ROOF, MAT_WALLS));
+
+    res = opU(floor, wall);
+    res.x += PlateTexture(pos, PlateTextureSettings);
+    //holes in left wall
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE1, MAT_GREEN), res);
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE2, MAT_GREEN), res);
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE3, MAT_GREEN), res);
+
+    //pillars
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR1, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR2, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR3, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR4, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR5, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR6, MAT_BLUE));
+
+    //spheres
+    //res = opU(res, Sphere(pos, .2, M_SPHERE, MAT_GREEN));
+    
+    float2 dynamicObjects;
+    for(int i = 0; i < MatrixCount; i++)
+    {
+        float4x4 m = MatrixBuffer[i].Matrix;
+        
+        float size = smin(abs(res.x), 1.0, 0.1);
+        float2 temp = Sphere(pos, size, m, MAT_RED);
+        dynamicObjects = (i == 0) ? temp : opUSmooth(dynamicObjects, temp, 0.1);
+    }
+    
+    dynamicObjects.x += 0.4 * sin(pos.x*3) * sin(pos.y*3) * sin(pos.z*3);                    //Add low freq offset
+    dynamicObjects.x += 0.05 * cos(20.0*pos.x) * cos(20.0*pos.y) * cos(20.0*pos.z);     //Add high freq offset
+    res = (MatrixCount > 0) ? opU(res, dynamicObjects) : res;
+        
+	return res;
+}
+
+float MapLite(in float3 pos)
+{   
+	float2 res;
+    //floor
+	float2 floor = FloorPlane(pos, 8, MAT_FLOOR);
+	    
+    //left wall
+    float2 wall = Box(pos, float3(10,2,1), M_LEFTWALL, MAT_WALLS);
+    //leftwall 2
+    wall = opU(wall, Box(pos, float3(.5,2,10), M_LEFTWALL2, MAT_WALLS));
+    //rightwall
+    wall = opU(wall, Box(pos, float3(10,2,1), M_RIGHTWALL, MAT_WALLS));
+    //roof
+    wall = opU(wall, Box(pos, float3(9,.5,3), M_ROOF, MAT_WALLS));
+
+    res = opU(floor, wall);
+    //holes in left wall
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE1, MAT_GREEN), res);
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE2, MAT_GREEN), res);
+    res = opS(Cylinder(pos, float2(1.2,2.0), M_WALLHOLE3, MAT_GREEN), res);
+
+    //pillars
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR1, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR2, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR3, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR4, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR5, MAT_BLUE));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), M_PILLAR6, MAT_BLUE));
+
+    float2 dynamicObjects;
+    for(int i = 0; i < MatrixCount; i++)
+    {
+        float4x4 m = MatrixBuffer[i].Matrix;
+        
+        float size = smin(abs(res.x), 1.0, 0.1);
+        float2 temp = Sphere(pos, size, m, MAT_RED);
+        dynamicObjects = (i == 0) ? temp : opU(dynamicObjects, temp);
+    }
+    
+    dynamicObjects.x += 0.4 * sin(pos.x*3) * sin(pos.y*3) * sin(pos.z*3);                    //Add low freq offset
+    res = (MatrixCount > 0) ? opU(res, dynamicObjects) : res;
+        
+	return res.x;
+}
+
+/*
+
 
 float2 AOTorus(in float3 pos, float mat)
 {
@@ -29,243 +276,113 @@ float2 AOTorus(in float3 pos, float mat)
 	return float2(length(q) - 2., mat);
 }
 
-float2 SphereTest(in float3 pos,float3 translation, float radius, float mat)
+float2 SphereTest(in float3 pos, float3 translation, float radius, float mat)
 {   
 	float4x4 m = float4x4(1.0,0.0,0.0,translation.x,
-						  0.0,1.0,0.0,translation.y * sin(Time.x), 
+						  0.0,1.0,0.0,translation.y, 
 						  0.0,0.0,1.0,translation.z, 
 						  0.0,0.0,0.0,1.0);
 	float3 pt = opTx(pos, m);
+    
 	return float2(sdSphere(pt, radius), mat);
-}
-
-float2 BoxTest(in float3 pos)
-{
-	float3 repeating = float3(10.0, 10.0, 10.0);
-	float3 posRepeated = mod(pos, repeating) - 0.5 * repeating;
-	return float2(sdBox(posRepeated, float3(4.0, 2.0, 1.0)), MAT_RED);
 }
 
 float2 PlaneTest(in float3 pos)
 {
-	float4x4 m = float4x4(1.0,0.0,0.0,0.0,
+	float4x4 m = float4x4(1.0,0.0,0.0,10.0,
 						  0.0,1.0,0.0,10.0, 
 						  0.0,0.0,1.0,0.0, 
 						  0.0,0.0,0.0,1.0);
 	float3 pt = opTx(pos, m);
-	float plane = sdBox(pt, float3(200.0,2.0,200.0));
-
+   	float plane = sdBox(pt, float3(400.0,2.0,400.0));
+    plane += PlateTexture(pos, 1.0, .0075, .0025);
 	return float2(plane, MAT_FLOOR); 
 }
-/*
- *  Map
- * 
- *  Map containing all the implicit geometry in the world, aka the function calls of signed distance functions.
- *  Returns float2 with:
- *      x: Signed Distance from position to world.
- *      y: MaterialID of object in world.
- */
-float2 Map(in float3 pos)
+
+//Finalized methods from here on 
+float4x4 GetTxMatrix(in float3 t, in float3 r)
+{   
+    t = -t;
+    float4x4 tm = float4x4(1.0, 0.0, 0.0, t.x, 
+                            0.0, 1.0, 0.0, t.y,
+                            0.0, 0.0, 1.0, t.z,
+                            0.0, 0.0, 0.0, 1.0);
+
+    if(r.x == 0 && r.y == 0 && r.z == 0) return tm;
+
+    float4x4 rx = float4x4(1.0, 0.0, 0.0, 0.0,
+                           0.0, cos(r.x), -sin(r.x), 0.0, 
+                           0.0, sin(r.x), cos(r.x), 0.0, 
+                           0.0, 0.0, 0.0, 1.0);
+
+    float4x4 ry = float4x4(cos(r.y), 0.0, sin(r.y), 0.0,
+                            0.0, 1.0, 0.0, 0.0,
+                            -sin(r.y), 0.0, cos(r.y), 0.0,
+                            0.0, 0.0, 0.0, 1.0);
+
+    float4x4 rz = float4x4(cos(r.z), -sin(r.z), 0.0, 0.0,
+                            sin(r.z), cos(r.z), 0.0, 0.0,
+                            0.0, 0.0, 1.0, 0.0,
+                            0.0, 0.0, 0.0, 1.0);
+
+    float4x4 fm = mul(rx, tm);
+    ;
+
+    return fm;
+}
+
+float2 Cylinder(float3 pos, float2 h, float3 t, float3 r, float mat)
 {
-	float2 res = opU(PlaneTest(pos),SphereTest(pos, float3(0.0,8.0,0.0), 6.0, MAT_RED));
-	res = opU(res, SphereTest(pos, float3(8.0,1.0,-8.0), 2.0, MAT_RED));
-	res = opU(res, SphereTest(pos, float3(-8.0,1.0,-8.0), 2.0, MAT_BLUE));
-	res = opU(res, SphereTest(pos, float3(0.0,1.0,8.0), 2.0, MAT_GREEN));
-	res = opU(res, AOTorus(pos, MAT_FLOOR));
-	//float displacement = displacement = sin(5.0 * pos.x) * sin(5.0 * pos.y) * sin(5.0 * pos.z) * 0.25;
-	//res += displacement;
-	
+    float4x4 m = GetTxMatrix(t,r);
+    pos = opTx(pos, m);
+    return float2(sdCappedCylinder(pos, h), mat);
+}
+
+float2 Box(float3 pos, float3 d, float3 t, float3 r, float mat)
+{
+    float4x4 m = GetTxMatrix(t,r);
+    pos = opTx(pos, m);
+    return float2(sdBox(pos, d) + PlateTexture(pos, 1.0, .0075, .0025), mat);
+}
+
+float2 Sphere(float3 pos, float rad, float3 t, float3 r, float mat)
+{
+    float4x4 m = GetTxMatrix(t,r);
+    pos = opTx(pos, m);
+    return float2(sdSphere(pos, rad), mat);
+}
+
+
+float2 MapOld(in float3 pos)
+{   
+    //floor
+	float2 res = PlaneTest(pos);
+    //left wall
+    float2 wall = Box(pos, float3(10,2,1), float3(-2,-6,0), float3(0,0,0), MAT_FLOOR);
+    //holes in left wall
+    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(6,-6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
+    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(2.5,-6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
+    wall = opS(Cylinder(pos, float2(1.2,1.2), float3(-1,-6.5,0), float3(PI/2,0,0), MAT_FLOOR), wall);
+    //leftwall 2
+    wall = opU(wall, Box(pos, float3(.5,2,10), float3(8,-6,-9), float3(0,0,0), MAT_FLOOR));
+
+    res = opU(res,wall);
+
+    //right wall
+    res = opU(res, Box(pos, float3(10,2,1), float3(-2,-6,6), float3(0,0,0), MAT_FLOOR));
+    //roof
+    res = opU(res, Box(pos, float3(9,.5,3), float3(-3,-4.5,2), float3(0,0,0), MAT_FLOOR));
+    //pillars
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-10,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-7,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-4,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(-1,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(2,-6.5,3), float3(0,0,0), MAT_FLOOR));
+    res = opU(res, Box(pos, float3(.2,1.5,.2), float3(5,-6.5,3), float3(0,0,0), MAT_FLOOR));
+
+    //spheres
+    res = opU(res, Sphere(pos, .2, float3(5,-7,4), float3(0,0,0), MAT_GREEN));
 	return res;
 }
-
-#include "AmbientOcclusion.cginc"
-
-void EvaluateMaterial(inout Hit hit, in Ray r, in float3 normal)
-{
-	hit.Material = MaterialBuffer[hit.MaterialId];
-	
-	if (hit.Material.MaterialType == 0) {
-		hit.Normal = normal;
-	}
-}
-
-
-float3 Shading(in Hit hit, in Ray r)
-{
-	float3 ambientColor = float3(.1, .1, .1);
-	float3 diffuseColor = float3(.0, .0, .0);
-	float3 specularColor = float3(.0, .0, .0);
-	float3 bentNormal = hit.Normal;
-	float specularOcclusion = 1;
-	float diffuseOcclusion = 1;
-	
-	if (EnableAmbientOcclusion) { 
-		ComputeAO(hit, r, bentNormal, diffuseOcclusion, specularOcclusion);
-		bentNormal = lerp(hit.Normal, bentNormal, BentNormalFactor);
-		Ray aoRay;
-		aoRay.Origin = r.Origin;
-		aoRay.Direction = bentNormal;
-		if (EnableGlobalIllumination) ambientColor = diffuseOcclusion * Background(aoRay);
-	}
-
-	for(int i = 0; i < LightCount; i++)
-	{
-	    StLight light = LightBuffer[i];
-		if (light.LightType < 0) break;
-		
-		//Compute BlinnPhong Lightning
-		float3 lightDir;
-		float3 lightColor;
-		float3 lightPower;
-		float attenuation = 1.0;
-
-		if (light.LightType == 0)               // Point Light
-		{
-			lightDir = light.LightData2.xyz - hit.Position;
-			lightPower = light.LightData.w;
-			attenuation = lightPower / length(lightDir);
-			lightDir = normalize(lightDir);
-			lightColor = light.LightData.xyz;
-		} else if (light.LightType == 1)        // Directional Light
-		{
-			lightDir = light.LightData2.xyz;
-			lightColor = light.LightData.xyz;
-			lightPower = light.LightData.w;
-		}
-		
-		float lambertian = max(dot(hit.Normal, lightDir), 0.0);
-		float specular = 0.0;
-		
-		if (lambertian > 0) {
-			float3 halfDir = normalize(lightDir + (-CameraDir));
-			float specularAngle = max(dot(hit.Normal, halfDir), 0.0);
-			specular = pow(specularAngle, hit.Material.Shininess);
-		} 
-		
-		diffuseColor += hit.Material.DiffuseColor * lambertian * lightColor * attenuation;
-		specularColor += hit.Material.SpecularColor * specular * lightColor * attenuation;
-	}
-	
-	diffuseColor *= diffuseOcclusion;
-	specularColor *= specularOcclusion;
-	
-	//Add up color
-	float3 color = ambientColor + diffuseColor + specularColor;
-	
-	//Gamma correct colors
-	color = pow( max(color,0.0), GammaCorrection);
- 
-	return color;
-}
-
-/*
- *  BACKGROUND
- * 
- *  Background/Sky related functions from here on. Need more comments
- */
-float3 totalMie(in float T)
-{
-	float3 MieConst = float3(1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );
-	float c = (0.2*T) * 10E-18;
-	return 0.434 * c * MieConst;
-}
-
-float sunIntensity(in float zenithAngleCos )
-{   
-	float e = 2.71828182845904523536028747135266249775724709369995957;
-	float EE = 1000.0;
-	float cutoffAngle = 1.6110731556870734;
-	float steepness = 1.5;
-	zenithAngleCos = clamp( zenithAngleCos, -1.0, 1.0 );
-	return EE * max( 0.0, 1.0 - pow( e, -( ( cutoffAngle - acos( zenithAngleCos)) / steepness ) ) );
-}
-
-float hgPhase(in float cosTheta,in float g)
-{
-	float ONE_OVER_FOURPI = 0.07957747154594767;
-	float g2 = pow( g, 2.0);
-	float inverse = 1.0 / pow( 1.0 - 2.0 * g * cosTheta + g2, 1.5);
-	return ONE_OVER_FOURPI * ( ( 1.0 - g2 ) * inverse );
-}
-
-float rayleighPhase(in float cosTheta ) 
-{
-	float THREE_OVER_SIXTEENPI = 0.05968310365946075;
-	return THREE_OVER_SIXTEENPI * ( 1.0 + pow( cosTheta, 2.0 ) );
-}
-
-float3 Uncharted2Tonemap(in float3 x)
-{
-	float A = 0.15;
-	float B = 0.50;
-	float C = 0.10;
-	float D = 0.20;
-	float E = 0.02;
-	float F = 0.30;
-	return ( ( x * ( A * x + C * B ) + D * E ) / ( x * ( A * x + B ) + D * F ) ) - E / F;
-}
-
-float3 Background(in Ray r)
-{       
-	
-	float3 sunPosition = float3( 4000.0, 150.0, 7000.0 );
-	float3 vSunDirection = normalize( sunPosition );
-
-	float3 up = float3(0.0, 1.0, 0.0);
-
-	float vSunE = sunIntensity( dot( vSunDirection, up ));
-	float vSunfade = 1.0 - clamp( 1.0 - exp((sunPosition.y / 450000.0 )), 0.0, 1.0);
-
-	float rayleigh = 2.0;
-	float3 totalRayleigh = float3( 5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5 );
-	float rayleighCoefficient = rayleigh - (1.0 * (1.0 - vSunfade ));
-	float3 vBetaR = totalRayleigh * rayleighCoefficient;
-
-	float turbidity = 10.0;
-	float mieCoefficient = 0.005;
-	float vBetaM = totalMie( turbidity ) * mieCoefficient;
-
-	float pi = 3.141592653589793238462643383279502884197169;
-	float rayleighZenithLength = 8.4E3;
-	float mieZenithLength = 1.25E3;
-	float zenithAngle = acos(max(0.0, dot( up, normalize(r.Direction) ) ) );
-	float inverse = 1.0 / ( cos( zenithAngle ) + 0.15 * pow( 93.885 - ( ( zenithAngle * 180.0 ) / pi ), -1.253) );
-	float sR = rayleighZenithLength * inverse;
-	float sM = mieZenithLength * inverse;
-
-	float3 Fex = exp( -( vBetaR * sR + vBetaM * sM) );
-
-	float cosTheta = dot( normalize(r.Direction), vSunDirection );
-	float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5);
-	float3 betaRTheta = vBetaR * rPhase;
-
-	float mieDirectionalG = 0.8;
-	float mPhase = hgPhase( cosTheta, mieDirectionalG);
-	float3 betaMTheta = vBetaM * mPhase;
-
-	float3 Lin = pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * ( 1.0 - Fex ), float3( 1.5 , 1.5, 1.5) );
-	Lin *= lerp( float3( 1.0,1.0,1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, float3( 1.0 / 2.0, 1.0 / 2.0, 1.0 / 2.0 ) ), clamp( pow( 1.0 - dot( up, vSunDirection ), 5.0 ), 0.0, 1.0 ) );
-
-	float theta = acos(r.Direction.y);
-	float phi = atan2(r.Direction.z, r.Direction.x);
-	float2 uv = float2(phi, theta);
-	float3 L0 = float3(0.1,0.1,0.1) * Fex;
-
-	float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;
-	float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta);
-	L0 += ( vSunE * 19000.0 * Fex) * sundisk;
-
-	float luminance = 1.0;
-	float whiteScale = 1.0748724675633854;
-	float3 texColor = (Lin + L0) * 0.04 + float3(0.0, 0.0003, 0.00075);
-	float3 curr = Uncharted2Tonemap( ( log2( 2.0 / pow( luminance, 4.0 ) ) ) * texColor );
-	float3 color = curr * whiteScale;
-
-	float retc =  1.0 / ( 1.2 + ( 1.2 * vSunfade ) );
-	float3 retColor = pow( color, float3(retc, retc, retc));
-
-	//return r.Direction;
-	return retColor;
-}
-
+*/
 #endif // WORLDLOGIC_INCLUDED
